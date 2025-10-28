@@ -4,6 +4,6 @@
 #define VISUALIZER_H
 
 // <RESULT> <window_width> <window_height>
-void visualize(RESULT*, int, int);
+void visualize(RESULT*, int, int, std::string);
 
 #endif

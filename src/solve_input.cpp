@@ -66,6 +66,17 @@ void printResult(RESULT*& result)
 	std::cout << "> Loss: " << result->loss << '%' << '\n';
 }
 
+std::string getFontPath(const char* exePath) {
+    std::string path(exePath);
+    size_t last_slash = path.find_last_of("/\\");
+    if (std::string::npos != last_slash) {
+        // Return the directory part + the font name
+        return path.substr(0, last_slash + 1) + "anon.ttf";
+    }
+    // If no slash found, assume font is in the current directory
+    return "anon.ttf";
+}
+
 int main(int argc, char* argv[])
 {
 	// Check Args
@@ -76,6 +87,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Get Args
+	char * EXE          = argv[0];
 	char * INFILE       = argv[1];
 	int W               = atoi(argv[2]);
 	bool ROTATIONS      = (argc >= 4) ? (*argv[3] == '.' ? false : atoi(argv[3])) : false;
@@ -151,7 +163,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Visualize result
-	visualize(result, 1280, 720);
+	visualize(result, 1280, 720, getFontPath(EXE));
 
     for (SHAPE* rectangle : *(result->rectangles)) {
         delete rectangle;

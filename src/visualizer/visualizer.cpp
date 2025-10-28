@@ -101,7 +101,7 @@ sf::Vector2f toScreen(sf::Vector2f p, float PIVOT_X, float PIVOT_Y, float OFF_X,
     );
 }
 
-void visualize(RESULT* result, int ww, int hh)
+void visualize(RESULT* result, int ww, int hh, std::string fontPath)
 {
     // Window
     sf::RenderWindow window(sf::VideoMode(ww, hh), "Packed!");
@@ -117,7 +117,7 @@ void visualize(RESULT* result, int ww, int hh)
 
     // Font
     sf::Font font;
-    font.loadFromFile("anon.ttf");
+    font.loadFromFile(fontPath);
 
     bool draw = true;
     while (window.isOpen())
