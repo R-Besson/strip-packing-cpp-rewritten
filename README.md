@@ -51,7 +51,7 @@ Studied function: [PACKER::solve](./src/packer/packer.cpp#716), packer.cpp:716
 ### <u>Time</u>
 
 ##### Initialization
-Creating `RESULT` object, holes set, initial hole: <b>$O(1)$</b>
+Creating `RESULT` object, holes set, initial hole: $O(1)$
 
 ##### Sorting
 Sort rectangles using `std::sort`, comparators perform a constant number of comparisons: <b>`O(N log N)`</b>
@@ -73,18 +73,21 @@ The chart below shows the evolution of $M$ as we iterate through the Main Loop. 
 *   The optional validation check (`#if CHECK_VALID`) uses a nested loop over all rectangles: $O(N^2)$
 
 ##### Overall Time Complexity
-The total time is <b>$O(N*log(N))$ + sum from $i = 1$ to $N$ of $O(N + i^2)$</b>. The sum evaluates to $O(N^3)$. This term dominates all others. Final Time Complexity: $O(N^3)$
+The total time is $O(N*log(N))$ + sum from $i = 1$ to $N$ of $O(N + i^2)$. The sum evaluates to $O(N^3)$. This term dominates all others.<br>
+Final Time Complexity: $O(N^3)$
 
 ### <u>Space</u>
 
 ##### Input Data
-The `rectangles` vector stores $N$ pointers: <b>$O(N)$</b>
+The `rectangles` vector stores $N$ pointers: $O(N)$
 
 ##### Main Data Structures
-The `holes` set is the primary auxiliary data structure. It stores $M$ pointers to dynamically allocated `SHAPE` objects. Since $M = O(N)$, this requires <b>$O(N)$</b> space.
+The `holes` set is the primary auxiliary data structure. It stores $M$ pointers to dynamically allocated `SHAPE` objects. Since $M = O(N)$, this requires $O(N)$ space.
 
 ##### Temporary Data Structures
 Inside `updateHoles`, the temporary `newHoles` set also stores up to $M = O(N)$ elements, but this does not increase the overall peak memory usage.
 
 ##### Overall Space Complexity
-The peak memory usage is dictated by the size of the `holes` set. Final Space Complexity: $O(N)$
+
+The peak memory usage is dictated by the size of the `holes` set.<br>
+Final Space Complexity: $O(N)$
