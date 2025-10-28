@@ -117,7 +117,7 @@ void visualize(RESULT* result, int ww, int hh)
 
     // Font
     sf::Font font;
-    font.loadFromFile("anon.TTF");
+    font.loadFromFile("anon.ttf");
 
     bool draw = true;
     while (window.isOpen())

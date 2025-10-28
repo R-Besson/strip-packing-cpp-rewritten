@@ -41,17 +41,14 @@ $(OBJS): %.o: %.cpp
 link: print-link packer bench generate
 print-link:
 	@echo "\n$(BOLD)$(GREEN)LINKING$(DEF)\n"
-packer: solve_input.o packer.o visualizer.o
-	$(CPP) $^ -o $@ $(SFMLFLAGS)
-	mv -f $@ build
-# visualize: visualize_input.o packer.o visualizer.o
-# 	$(CPP) $^ -o $@ $(SFMLFLAGS)
-# 	mv -f $@ build
 bench: benchmark.o packer.o
 	$(CPP) $^ -o $@
 	mv -f $@ build
 generate: generate.o
 	$(CPP) $^ -o $@
+	mv -f $@ build
+packer: solve_input.o packer.o visualizer.o
+	$(CPP) $^ -o $@ $(SFMLFLAGS)
 	mv -f $@ build
 
 # Clean
