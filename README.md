@@ -51,38 +51,40 @@ Studied function: [PACKER::solve](./src/packer/packer.cpp#716), packer.cpp:716
 ### <u>Time</u>
 
 ##### Initialization
-Creating `RESULT` object, holes set, initial hole: <b>`O(1)`</b>
+Creating `RESULT` object, holes set, initial hole: <b>$O(1)$</b>
 
 ##### Sorting
 Sort rectangles using `std::sort`, comparators perform a constant number of comparisons: <b>`O(N log N)`</b>
 
 ##### Main Loop
-The function iterates `N` times (once per rectangle). The cost of each iteration is dominated by `updateHoles`:
-*   `getBestHole`: Iterates through all `M` holes -> `O(M)`
-*   `fewNeighborsOnLeft`: Iterates through all `N` rectangles -> `O(N)`
-*   `updateHoles`: This is the bottleneck. It effectively has a nested loop structure, checking for covered holes, resulting in `O(M^2)`.
-*   **Total per iteration:** `O(N + M^2)`
+The function iterates $N$ times (once per rectangle). The cost of each iteration is dominated by `updateHoles`:
+*   `getBestHole`: Iterates through all $M$ holes -> $O(M)$
+*   `fewNeighborsOnLeft`: Iterates through all $N$ rectangles -> $O(N)$
+*   `updateHoles`: This is the bottleneck. It has a nested loop structure, first looping through all holes, and checking for covered holes, resulting in $O(M^2)$.
+*   **Total per iteration:** $O(N + M^2)$
 
 ##### Growth of M (Number of Holes)
-The number of available holes `M` grows at most linearly with the number of rectangles placed `N`. Therefore, we can consider **`M` to be `O(N)`**.
+The number of available holes $M$ grows at most linearly with the number of rectangles placed $N$. Therefore, we can consider $M$ to be $O(N)$.
+The chart below shows the evolution of $M$ as we iterate through the Main Loop. $O(N)$ is going to be a strict upper bound for M.
+<img src="./runs/hole_count.png">
 
 ##### Finalization & Validation
-*   Deleting remaining holes: `O(M) = O(N)`
-*   The optional validation check (`#if CHECK_VALID`) uses a nested loop over all rectangles: `O(N^2)`
+*   Deleting remaining holes: $O(M) = O(N)$
+*   The optional validation check (`#if CHECK_VALID`) uses a nested loop over all rectangles: $O(N^2)$
 
 ##### Overall Time Complexity
-The total time is <b>O(N log N) + $\sum _{i=1}^N O(N + i^2)$</b>. The sum <b>$\sum _{i=1}^N O(N + i^2)$</b> evaluates to `O(N^3)`. This term dominates all others. Final Time Complexity: `O(N^3)`
+The total time is <b>$O(N*log(N))$ + sum from $i = 1$ to $N$ of $O(N + i^2)$</b>. The sum evaluates to $O(N^3)$. This term dominates all others. Final Time Complexity: $O(N^3)$
 
 ### <u>Space</u>
 
 ##### Input Data
-The `rectangles` vector stores `N` pointers: <b>`O(N)`</b>
+The `rectangles` vector stores $N$ pointers: <b>$O(N)$</b>
 
 ##### Main Data Structures
-The `holes` set is the primary auxiliary data structure. It stores `M` pointers to dynamically allocated `SHAPE` objects. Since `M = O(N)`, this requires <b>`O(N)`</b> space.
+The `holes` set is the primary auxiliary data structure. It stores $M$ pointers to dynamically allocated `SHAPE` objects. Since $M = O(N)$, this requires <b>$O(N)$</b> space.
 
 ##### Temporary Data Structures
-Inside `updateHoles`, the temporary `newHoles` set also stores up to `O(M) = O(N)` elements, but this does not increase the overall peak memory usage.
+Inside `updateHoles`, the temporary `newHoles` set also stores up to $M = O(N)$ elements, but this does not increase the overall peak memory usage.
 
 ##### Overall Space Complexity
-The peak memory usage is dictated by the size of the `holes` set. Final Space Complexity: `O(N)`
+The peak memory usage is dictated by the size of the `holes` set. Final Space Complexity: $O(N)$
