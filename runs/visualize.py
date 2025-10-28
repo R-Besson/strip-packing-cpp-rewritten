@@ -25,7 +25,7 @@ fig = go.Figure(data=[go.Surface(
 )])
 
 fig.update_layout(
-    title='Plotting worst α as a function of rectangle count and Height/Width ratio of the optimal solution',
+    title='Plotting average α as a function of rectangle count and Height/Width ratio of the optimal solution',
 	font_family="monospace",
 	font_size=14,
     scene=dict(

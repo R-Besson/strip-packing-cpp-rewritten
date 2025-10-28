@@ -4,7 +4,7 @@ import re
 
 def process_files_in_directory(directory_path='.'):
     filename_pattern = re.compile(r'N(\d+)_IT\d+_WH([\d.]+)\.csv')
-    worst_value_pattern = re.compile(r'worst=([^,]+)')
+    worst_value_pattern = re.compile(r'avg=([^,]+)')
     results = []
     print(f"Scanning directory: {os.path.abspath(directory_path)}")
     for filename in os.listdir(directory_path):
@@ -47,7 +47,7 @@ def write_summary_csv(results, output_filename='summary_results.csv'):
     try:
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(['N', 'H/W', 'α (H/OPT_H)'])
+            writer.writerow(['N', 'H/W', 'H/OPTH'])
             writer.writerows(results)
         print(f"\nSuccessfully created summary file: {output_filename}")
     except IOError as e:

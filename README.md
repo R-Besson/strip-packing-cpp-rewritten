@@ -43,7 +43,11 @@ ls
 ## Results
 3D graph made using Plotly showing the evolution of the worst-case optimality (α = H/OPT(I)) of the algorithm as the number of rectangles (N) goes to ∞ and the length of the optimal solution compared to strip width changes. <br>Methodology: ran 2000 iterations per N and H/W configuration using `bench` binary, results found in the [runs](./runs/) folder.
 
-<img src="runs/graph.png">
+<img src="runs/graph_worst.png">
+
+3D graph made using Plotly showing the evolution of the average-case optimality (α = H/OPT(I)) of the algorithm as the number of rectangles (N) goes to ∞ and the length of the optimal solution compared to strip width changes.
+
+<img src="runs/graph_avg.png">
 
 ## Algorithm Analysis $\rightarrow$ $O(N^3)$ Time, $O(N)$ Space
 Studied function: [PACKER::solve](./src/packer/packer.cpp#716), packer.cpp:716
@@ -54,7 +58,7 @@ Studied function: [PACKER::solve](./src/packer/packer.cpp#716), packer.cpp:716
 Creating `RESULT` object, holes set, initial hole: $O(1)$
 
 ##### Sorting
-Sort rectangles using `std::sort`, comparators perform a constant number of comparisons: <b>`O(N log N)`</b>
+Sort rectangles using `std::sort`, comparators perform a constant number of comparisons: $O(N*log(N))$
 
 ##### Main Loop
 The function iterates $N$ times (once per rectangle). The cost of each iteration is dominated by `updateHoles`:
