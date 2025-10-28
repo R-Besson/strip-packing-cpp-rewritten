@@ -208,7 +208,7 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	int hx2 = hole->getx2();
 	int hy2 = hole->gety2();
 
-    SHAPE_VEC newHoles;
+	SHAPE_VEC newHoles;
 
 	// ⬜⬜⬜
 	// ⬜⬜⬜
@@ -494,19 +494,19 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// [SPECIAL CASE] Hole is covered by rectangle
 	// do nothing
 
-    if (!hole->isCovered(holes)) {
-        for (auto newHole: newHoles) {
-            if (!newHole->isCovered(holes)) {
-                holes->insert(newHole);
-            } else {
-                delete newHole;
-            }
-        }
-    } else {
-        for (auto newHole: newHoles) {
-            delete newHole;
-        }
-    }
+	if (!hole->isCovered(holes)) {
+		for (auto newHole: newHoles) {
+			if (!newHole->isCovered(holes)) {
+				holes->insert(newHole);
+			} else {
+				delete newHole;
+			}
+		}
+	} else {
+		for (auto newHole: newHoles) {
+			delete newHole;
+		}
+	}
 
 }
 
@@ -615,10 +615,13 @@ bool isBetterHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE*& bestHole, int bestHei
 
 		if (hole->x < bestHole->x) return true;
 		if (hole->x != bestHole->x) return false;
+
 		if (hole->h < bestHole->h) return true;
-		if (hole->h == bestHole->h) return false;
+		if (hole->h != bestHole->h) return false;
+
 		if (hole->w < bestHole->w) return true;
 		if (hole->w != bestHole->w) return false;
+
 		if (hole->id < bestHole->id) return true;
 	}
 	return false;
@@ -807,9 +810,9 @@ RESULT* solve(int W, SHAPE_VEC*& rectangles, bool rotations, HEURISTIC strategy,
 	result->rectangles = rectangles;
 
 	for (auto hole : *holes) {
-        delete hole;
-    }
-    delete holes;
+		delete hole;
+	}
+	delete holes;
 
 	#if CHECK_VALID
 		bool passedCheck = true;

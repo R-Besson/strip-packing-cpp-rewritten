@@ -5,38 +5,42 @@ CPPFLAGS = -Wall -Wextra -Wpedantic
 SFMLFLAGS = -l sfml-window -l sfml-graphics -l sfml-system
 
 # Style
-ifneq ($(shell tput setaf 1 2> /dev/null),)
-	DEF = \033[0m
-	BOLD = \033[1m
-	UBOLD = \033[21m
-	CUR = \033[3m
-	UL = \033[4m
-	GREEN = \033[32m
-	MAGENTA = \033[35m
+ifeq ($(OS), Windows_NT)
+    DEF =
+    BOLD =
+    GREEN =
+else
+    ifneq ($(shell tput setaf 1 2>/dev/null),)
+        DEF = \033[0m
+        BOLD = \033[1m
+        GREEN = \033[32m
+    endif
 endif
+
+.PHONY: all clean run-packer
 
 # Rules
 all: prepare set-default-flags $(OBJS) link clean
 set-default-flags:
-	@echo "\n$(BOLD)$(GREEN)OPTIMIZED COMPILATION$(DEF)\n"
+	@echo "$(BOLD)$(GREEN)---> OPTIMIZED COMPILATION$(DEF)"
 	$(eval CPPFLAGS += -Ofast -s)
 	$(eval SFMLFLAGS = -l sfml-window -l sfml-graphics -l sfml-system)
 
 release: prepare set-release-flags $(OBJS) link clean
 set-release-flags:
-	@echo "\n$(BOLD)$(GREEN)RELEASE COMPILATION$(DEF)\n"
+	@echo "$(BOLD)$(GREEN)---> RELEASE COMPILATION$(DEF)"
 	$(eval CPPFLAGS += -Ofast -s -static -static-libgcc -static-libstdc++ -DSFML_STATIC)
 	$(eval SFMLFLAGS = -l sfml-graphics-s -l sfml-window-s -l sfml-system-s -l freetype -l harfbuzz -l graphite2 -l png -l bz2 -l z -l brotlidec -l brotlicommon -l opengl32 -l winmm -l gdi32 -lole32 -lusp10 -l Rpcrt4)
 
 debug: prepare set-debug-flags $(OBJS) link clean
 set-debug-flags:
-	@echo "\n$(BOLD)$(GREEN)DEBUG COMPILATION$(DEF)\n"
+	@echo "$(BOLD)$(GREEN)---> DEBUG COMPILATION$(DEF)"
 	$(eval CPPFLAGS += -g3)
 	$(eval SFMLFLAGS = -l sfml-window -l sfml-graphics -l sfml-system)
 
 # Prepare
 prepare:
-	@echo "\n$(BOLD)$(GREEN)PREPARE$(DEF)\n"
+	@echo "$(BOLD)$(GREEN)---> PREPARE$(DEF)"
 	$(RM) -r build
 	mkdir build
 	cp src/anon.ttf build/anon.ttf
@@ -48,7 +52,7 @@ $(OBJS): %.o: %.cpp
 # Link
 link: print-link packer bench generate
 print-link:
-	@echo "\n$(BOLD)$(GREEN)LINKING$(DEF)\n"
+	@echo "$(BOLD)$(GREEN)---> LINKING$(DEF)"
 bench: benchmark.o packer.o
 	$(CPP) $(CPPFLAGS) $^ -o $@
 	mv -f $@ build
@@ -61,5 +65,5 @@ packer: solve_input.o packer.o visualizer.o
 
 # Clean
 clean:
-	@echo "\n$(BOLD)$(GREEN)CLEANING$(DEF)\n"
+	@echo "$(BOLD)$(GREEN)---> CLEANING$(DEF)"
 	$(RM) *.o

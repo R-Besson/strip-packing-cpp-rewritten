@@ -18,10 +18,10 @@ void printUsage()
 	std::cout << '\n' << "Usage:" << '\n';
 	std::cout << "   <exe> <width> <rectangle_count> <ratio height/width> <output_file>" << '\n' << '\n';
 	std::cout << "Examples:" << '\n';
-	std::cout << "   gen 100                --> Width 100" << '\n';
-	std::cout << "   gen ??? 10             --> 10 rectangles" << '\n';
-	std::cout << "   gen ??? ?? 0.5         --> 1/2 ratio = 2 times as wide" << '\n';
-	std::cout << "   gen ??? ?? ??? out     --> Exports rectangles (default : none)" << '\n';
+	std::cout << "   gen 100                  --> Width 100" << '\n';
+	std::cout << "   gen ??? 10               --> 10 rectangles" << '\n';
+	std::cout << "   gen ??? ?? 0.5           --> 1/2 ratio = 2 times as wide" << '\n';
+	std::cout << "   gen ??? ?? ??? out.csv   --> Exports rectangles (default : none)" << '\n';
 }
 
 void printArgs(int W, int N, float RATIO, char* OUTFILE)

@@ -37,7 +37,6 @@ class SHAPE
 private:
 	typedef std::vector<SHAPE*> SHAPE_VEC; // Vector of SHAPE pointers
 	typedef std::unordered_set<SHAPE*> SHAPE_SET; // Set of SHAPE pointers
-	typedef std::unordered_map<int, SHAPE_SET*> SHAPE_MAP; // Map of <int, SHAPE pointers>
 public:
 	// Properties
 	int id;
@@ -74,7 +73,6 @@ public:
 
 typedef std::vector<SHAPE*> SHAPE_VEC; // Vector of SHAPE pointers
 typedef std::unordered_set<SHAPE*> SHAPE_SET; // Set of SHAPE pointers
-typedef std::unordered_map<int, SHAPE_SET*> SHAPE_MAP; // Map of <int, SHAPE pointers>
 
 /**============================================
  *               RESULT CLASS
