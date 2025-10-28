@@ -31,6 +31,11 @@ packer.exe
 ...
 ```
 
+### Testing
+- You can make your own test instances using the `generate` executable. Run it to see usage instructions.
+- You can run a multitude of tests and generate a comprehensive output file using the `bench` executable.
+- You can use famous [instances](./instances_no_rotation/) in the research world of strip-packing. Keep in mind due to the very origin of these files, they are extremely hard to find and track downloads for and consequently many instances aren't correct or the results obtained them don't line up / make sense with results showed in other papers.
+
 ## Results
 3D graph made using Plotly showing the evolution of the optimality (α = H/OPT(I)) of the algorithm as the number of rectangles (N) → ∞ and the length of the optimal solution compared to its width changes.
 
