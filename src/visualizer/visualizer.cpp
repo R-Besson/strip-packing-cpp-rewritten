@@ -4,10 +4,10 @@
  * @description : Visualizer code for viewing a RESULT
  *=============================================**/
 
-#include <math.h>
+#include <cmath>
 #include <iostream>
 #include <cstdlib>
-#include <time.h>
+#include <ctime>
 
 #include "visualizer.h"
 #include <SFML/Graphics.hpp>

@@ -763,19 +763,9 @@ RESULT* solve(int W, SHAPE_VEC*& rectangles, bool rotations, HEURISTIC strategy,
 		printPerc(n, N);
 	}
 
-	std::ofstream ofs;
-	ofs.open("hole_evolution.csv", std::ofstream::out | std::ofstream::trunc);
-	if (!ofs.is_open()) // Fail check
-	{
-		std::cerr << '\n' << "Error : Couldn't write to output file" << '\n';
-		return nullptr;
-	}
-
 	// Main iteration to place 'rectangles'
 	for (SHAPE_VEC::iterator it = rectangles->begin(); it != rectangles->end(); it++)
 	{
-		ofs << n << ", " << holes->size() << "\n";
-
 		SHAPE* rectangle = *it;
 		SHAPE* hole = getBestHole(rectangle, holes, rotations);
 
@@ -810,8 +800,6 @@ RESULT* solve(int W, SHAPE_VEC*& rectangles, bool rotations, HEURISTIC strategy,
 	}
 	if (showProgress) std::cout << '\n';
 	
-	ofs.close();
-
 	auto end = std::chrono::high_resolution_clock::now();
 
 	// Save result
