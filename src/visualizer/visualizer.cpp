@@ -6,7 +6,7 @@
 
 #include <math.h>
 #include <iostream>
-#include <stdlib.h>
+#include <cstdlib>
 #include <time.h>
 
 #include "visualizer.h"

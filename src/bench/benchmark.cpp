@@ -4,10 +4,10 @@
  * @description : Random Instance Benchmarking
  *=====================================================**/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <random>

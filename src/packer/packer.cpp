@@ -7,7 +7,7 @@
 #include <iostream>
 #include <algorithm>
 #include <chrono>
-#include <math.h>
+#include <cmath>
 #include <fstream>
 
 #include "packer.h"
@@ -816,7 +816,7 @@ RESULT* solve(int W, SHAPE_VEC*& rectangles, bool rotations, HEURISTIC strategy,
 
 	// Save result
 	result->h = H;
-	result->opt_h = std::max(round(float(A) / float(W)), float(maxH));
+	result->opt_h = std::max(std::round(float(A) / float(W)), float(maxH));
 	float canvasArea = result->w*result->h;
 	result->loss = (canvasArea-float(A))/canvasArea * 100.f;
 	result->time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

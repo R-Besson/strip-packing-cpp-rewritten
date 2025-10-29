@@ -6,7 +6,7 @@
  *                in format <W> <H> (new line)
  *=============================================**/
 
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include <map>
