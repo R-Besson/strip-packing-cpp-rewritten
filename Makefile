@@ -53,10 +53,10 @@ $(OBJS): %.o: %.cpp
 link: print-link packer bench generate
 print-link:
 	@echo "$(BOLD)$(GREEN)---> LINKING$(DEF)"
-bench: benchmark.o packer.o
+bench: benchmark.o packer.o instance_gen.o
 	$(CPP) $(CPPFLAGS) $^ -o $@
 	mv -f $@ build
-generate: generate.o
+generate: generate.o instance_gen.o
 	$(CPP) $(CPPFLAGS) $^ -o $@
 	mv -f $@ build
 packer: solve_input.o packer.o visualizer.o

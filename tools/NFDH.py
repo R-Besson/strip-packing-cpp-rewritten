@@ -7,14 +7,14 @@ from graphics import *
 
 win = GraphWin("NFDH Result", 800, 800)
 
-def printUsage():
+def print_usage():
     print("Usage: <python> <pythonfile> <infile> <width>")
     print("Example:")
     print("py NFDH.py list.txt 1000  -> Generate packing for list.txt rectangles,")
     print("                             width strip of 1000 width")
 
 if (len(sys.argv) < 3):
-    printUsage()
+    print_usage()
     exit()
 
 try:

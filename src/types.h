@@ -7,89 +7,87 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#include <string>
 #include <map>
 #include <vector>
-#include <memory>
+#include <string>
+#include <chrono>
 #include <optional>
-#include <unordered_set>
-#include <unordered_map>
+#include <functional>
+
+/**============================================
+ *          Shape class (x,y,w,h,...)
+ *=============================================**/
+class Shape {
+private:
+	uint32_t id_ = 0;
+	uint32_t x_ = 0;
+	uint32_t y_ = 0;
+	uint32_t w_ = 0;
+	uint32_t h_ = 0;
+	mutable std::optional<uint32_t> area_;
+	bool is_rotated_ = false;
+
+public:
+	Shape(uint32_t id, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+		: id_(id), x_(x), y_(y), w_(w), h_(h)
+	{}
+
+	uint32_t id() const { return id_; }
+	uint32_t x() const { return x_; }
+	uint32_t y() const { return y_; }
+	uint32_t w() const { return w_; }
+	uint32_t h() const { return h_; }
+	uint32_t x2() const { return x_ + w_; }
+	uint32_t y2() const { return y_ + h_; }
+	bool is_rotated() const { return is_rotated_; }
+	
+	// Mutators
+	uint32_t area() const; // stores calculated area in area_
+	void set_position(uint32_t new_x, uint32_t new_y) { x_ = new_x; y_ = new_y; }
+	void rotate();
+
+	// Geometric queries
+	bool fits_in(const Shape &container) const;
+	bool is_in(const Shape &container) const;
+	bool intersects(const Shape &other) const;
+	bool is_covered(const std::vector<Shape> &others) const;
+
+	bool operator==(const Shape &other) const;
+};
 
 /**============================================
  *         Sorting Strategy Heuristic
  *=============================================**/
-enum HEURISTIC
+enum class Heuristic
 {
-	descArea,   // Prefers Bigger Area
-	descArea2,   // Prefers Bigger Area
-	descWidth,  // Prefers Bigger Width
-	descHeight, // Prefers Bigger Height
-	ascArea,    // Prefers Smaller Area
-	ascWidth,   // Prefers Smaller Area
-	ascHeight   // Prefers Smaller Height
+	DescendingArea,
+	DescendingArea2,
+	DescendingWidth,
+	DescendingHeight,
+	
+	Count
+};
+
+const std::map<Heuristic, std::string> HeuristicStrings = {
+	{Heuristic::DescendingArea, "Descending Area"},
+	{Heuristic::DescendingArea2, "Descending Area 2"},
+	{Heuristic::DescendingWidth, "Descending Width"},
+	{Heuristic::DescendingHeight, "Descending Height"},
 };
 
 /**============================================
- *          SHAPE CLASS (x,y,w,h,...)
- *=============================================**/
-class SHAPE
-{
-private:
-	typedef std::vector<SHAPE*> SHAPE_VEC; // Vector of SHAPE pointers
-	typedef std::unordered_set<SHAPE*> SHAPE_SET; // Set of SHAPE pointers
-public:
-	// Properties
-	int id;
-
-	int x, y; // Top Left Corner (Position)
-	int w, h; // Width, Height (Dimensions)
-	int a;
-
-	bool isRotated = false;
-
-	// Functions
-	int getx2();
-	int gety2();
-	int getArea();
-
-	void rotate();
-	bool fitsIn(SHAPE*&);
-	bool isIn(SHAPE*&);
-	bool intersects(SHAPE*&);
-	bool isCovered(SHAPE_SET*&);
-
-	bool operator==(SHAPE&);
-
-	// Constructors
-	explicit SHAPE(int id_, int w_, int h_)
-	: id(id_), x(0), y(0), w(w_), h(h_), a(0) {}
-
-	explicit SHAPE(int x_, int y_, int w_, int h_)
-	: id(0), x(x_), y(y_), w(w_), h(h_), a(0) {} 
-
-	explicit SHAPE(int id_, int x_, int y_, int w_, int h_)
-	: id(id_), x(x_), y(y_), w(w_), h(h_), a(0) {}
-};
-
-typedef std::vector<SHAPE*> SHAPE_VEC; // Vector of SHAPE pointers
-typedef std::unordered_set<SHAPE*> SHAPE_SET; // Set of SHAPE pointers
-
-/**============================================
- *               RESULT CLASS
+ *               Result structure
  * contains info on the result of the packing
  *=============================================**/
-class RESULT
-{   public:
-
-	int w, h;               // Width & Height of container/canvas
-	int opt_h;              // Theoretical Optimal Height -> opt_h = totalRectArea / w
-	HEURISTIC sortStrategy; // Initial Sort Method used to sort rectangles
-	float loss;             // Canvas loss as percentage -> loss = (containerArea - totalRectArea) / (containerArea);
-	bool rotations;         // Were rotations allowed?
-
-	long long time;         // in ms
-
-	SHAPE_VEC* rectangles;       // vector with packed rects (x/y's changed) and sorted by ascending id
+struct Result
+{
+	uint32_t w = 0, h = 0;                               // Width & Height of container/canvas
+	uint32_t opt_h = 0;                                  // Theoretical Optimal Height -> opt_h = totalRectArea / w
+	Heuristic sort_strategy = Heuristic::DescendingArea; // Initial Sort Method used to sort rectangles
+	float loss = 0.0;                                    // Canvas loss as percentage -> loss = (containerArea - totalRectArea) / (containerArea);
+	bool rotations = false;                              // Were rotations allowed
+	std::vector<Shape> rectangles{};                     // vector with packed rects (x/y's changed) and sorted by ascending id
+	long long elapsed_ms{};
 };
 
 #endif

@@ -1,7 +1,7 @@
 # Generate a random list of rectangles
 import os, sys, random
 
-def printUsage():
+def print_usage():
     print("Usage: <python> <pyfile> <outfile> <nbRectangles> <minW> <maxW> <minH> <maxH>")
     print("Example:")
     print("py genlist.py list.txt 1000 1 100 2 200  -> Generate list.txt with 1000 rectangles,")
@@ -9,7 +9,7 @@ def printUsage():
     print("                                            min height for a rectangle is 2, max is 200")
 
 if (len(sys.argv) < 5):
-    printUsage()
+    print_usage()
     exit()
 
 FILE = str(sys.argv[1])

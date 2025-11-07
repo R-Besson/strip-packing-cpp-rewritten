@@ -6,170 +6,178 @@
  *                in format <W> <H> (new line)
  *=============================================**/
 
-#include <cstdio>
 #include <iostream>
 #include <fstream>
-#include <map>
 
-#include "packer/packer.h"          // 2D Packing Library
-#include "visualizer/visualizer.h"  // 2D Visualizing Library
+#include "packer/packer.h"		   // 2D Packing Library
+#include "visualizer/visualizer.h" // 2D Visualizing Library
+#include "cxxopts.hpp"			   // CXXOpts for argument parsing
 
-// Denominate enums as comprehensible strings
-std::map<HEURISTIC, std::string> strategies = {
-	{HEURISTIC::descArea, "Descending Area (0)"},
-	{HEURISTIC::descArea2, "Descending Area (1)"},
-	{HEURISTIC::descWidth, "Descending Width (2)"},
-	{HEURISTIC::descHeight, "Descending Height (3)"},
-	{HEURISTIC::ascArea, "Ascending Area (4)"},
-	{HEURISTIC::ascWidth, "Ascending Width (5)"},
-	{HEURISTIC::ascHeight, "Ascending Height (6)"}
-};
-
-void printUsage()
+void print_args(const std::string &input_file, uint32_t W, bool rotations, Heuristic strategy, bool show_progress, const std::string &output_file)
 {
-	std::cout << '\n' << "Usage (* = optional, use a '.' for default value):" << '\n';
-	std::cout << "   <exe> <rectangles_file> <width> <can_rotate*> <sort_strategy*> <show_progress*> <output_file*>" << '\n' << '\n';
-	std::cout << "Examples:" << '\n';
-	std::cout << "   pack list.txt                      --> Imports data (format : <width> <height>)" << '\n';
-	std::cout << "   pack ???????? 100                  --> Width = 100" << '\n';
-	std::cout << "   pack ???????? ??? 0                --> non-rotatable solution (default)" << '\n';
-	std::cout << "   pack ???????? ??? 1                --> rotatable solution" << '\n';
-	std::cout << "   pack ???????? ??? ? 0              --> Sort Strategy = Descending Area" << '\n';
-	std::cout << "   pack ???????? ??? ? 1              --> Sort Strategy = Descending Area 2" << '\n';
-	std::cout << "   pack ???????? ??? ? 2              --> Sort Strategy = Descending Width" << '\n';
-	std::cout << "   pack ???????? ??? ? 3              --> Sort Strategy = Descending Height (default)" << '\n';
-	std::cout << "   pack ???????? ??? ? 4              --> Sort Strategy = Ascending Area" << '\n';
-	std::cout << "   pack ???????? ??? ? 5              --> Sort Strategy = Ascending Width" << '\n';
-	std::cout << "   pack ???????? ??? ? 6              --> Sort Strategy = Ascending Height" << '\n';
-	std::cout << "   pack ???????? ??? ? 6 1            --> Verbose (default : true)" << '\n';
-	std::cout << "   pack ???????? ??? ? ? ? out.csv    --> Exports data (CSV format) (default : none)" << '\n';
+	std::cout << '\n'
+			  << "Solving with:" << '\n';
+	std::cout << "> Input File:      " << input_file << '\n';
+	std::cout << "> Width:           " << W << '\n';
+	std::cout << "> Rotations:       " << (rotations ? "Yes" : "No") << '\n';
+	std::cout << "> Sort Strategy:   " << HeuristicStrings.at(strategy) << '\n';
+	std::cout << "> Show Progress:   " << (show_progress ? "Yes" : "No") << '\n';
+	std::cout << "> Output File:     " << (output_file.empty() ? "None" : output_file) << '\n';
 }
 
-void printArgs(char* INFILE, int W, bool ROTATIONS, HEURISTIC STRATEGY, bool SHOW_PROGRESS, char* OUTFILE)
+void print_result(const Result &result)
 {
-	std::cout << '\n' << "Solving with:" << '\n';
-	std::cout << "> Input File: " << INFILE << '\n';
-	std::cout << "> Width: " << W << '\n';
-	std::cout << "> Rotations: " << (ROTATIONS ? "Yes" : "No") << '\n';
-	std::cout << "> Sort Strategy: " << strategies[STRATEGY] << '\n';
-	std::cout << "> Show Progress: " << (SHOW_PROGRESS ? "Yes" : "No") << '\n';
-	std::cout << "> Output File: " << (OUTFILE ? OUTFILE : "None") << '\n';
+	std::cout << '\n'
+			  << "Result:" << '\n';
+	std::cout << "> Time Taken:                   " << result.elapsed_ms << "ms" << '\n';
+	std::cout << "> Solution Height:              " << result.h << '\n';
+	std::cout << "> Theoretical Optimal Height:   " << result.opt_h << '\n';
+	std::cout << "> Ratio SOLUTION/OPTIMAL:       " << static_cast<float>(result.h) / result.opt_h << '\n';
+	std::cout << "> Loss:                         " << result.loss << '%' << '\n';
 }
 
-void printResult(RESULT*& result)
+std::string get_font_path(const std::string &exe_path_str)
 {
-	std::cout << '\n' << "Result:" << '\n';
-	std::cout << "> Time Taken: " << result->time << "ms" << '\n';
-	std::cout << "> Solution Height: " << result->h << '\n';
-	std::cout << "> Theoretical Optimal Height: " << result->opt_h << '\n';
-	std::cout << "> Ratio SOLUTION/OPTIMAL: " << float(result->h)/float(result->opt_h) << '\n';
-	std::cout << "> Loss: " << result->loss << '%' << '\n';
+	std::filesystem::path exe_path(exe_path_str);
+	return (exe_path.parent_path() / "anon.ttf").string();
 }
 
-std::string getFontPath(const char* exePath) {
-    std::string path(exePath);
-    size_t last_slash = path.find_last_of("/\\");
-    if (std::string::npos != last_slash) {
-        // Return the directory part + the font name
-        return path.substr(0, last_slash + 1) + "anon.ttf";
-    }
-    // If no slash found, assume font is in the current directory
-    return "anon.ttf";
-}
-
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-	// Check Args
-	if (argc < 3)
+	cxxopts::Options options("packer", "A 2D strip packing problem (SPP) solver.");
+
+	options.add_options()
+		("h,help", "Print usage information")
+		("r,rotate", "Allow rectangles to be rotated", cxxopts::value<bool>()->default_value("false"))
+		("v,verbose", "Show packing progress", cxxopts::value<bool>()->default_value("false"))
+		("s,strategy", "Heuristic for sorting rectangles (0-3) (Desc. Area | Desc. Area 2 | Desc Width | Desc Height)", cxxopts::value<int>()->default_value("3"))
+		("a,all", "Solve using all heuristics and output the best result.", cxxopts::value<bool>()->default_value("false"))
+		("o,output", "Output CSV file name", cxxopts::value<std::string>())
+		("input-file", "Input rectangles file (format: <w> <h> per line)", cxxopts::value<std::string>())
+		("width", "The width of the strip for packing", cxxopts::value<uint32_t>());
+	options.positional_help("<input-file> <width>");
+	options.parse_positional({"input-file", "width"});
+
+	cxxopts::ParseResult result;
+	try
 	{
-		printUsage();
+		result = options.parse(argc, argv);
+	}
+	catch (const cxxopts::exceptions::exception &e)
+	{
+		std::cerr << "Error parsing options: " << e.what() << std::endl;
+		std::cerr << options.help() << std::endl;
+		return EXIT_FAILURE;
+	}
+	if (result.count("help"))
+	{
+		std::cout << options.help() << std::endl;
+		return EXIT_SUCCESS;
+	}
+	if (result.count("input-file") == 0 || result.count("width") == 0)
+	{
+		std::cerr << "Error: Missing required arguments <rectangles_file> and <width>.\n";
+		std::cout << options.help() << std::endl;
 		return EXIT_FAILURE;
 	}
 
-	// Get Args
-	char * EXE          = argv[0];
-	char * INFILE       = argv[1];
-	int W               = atoi(argv[2]);
-	bool ROTATIONS      = (argc >= 4) ? (*argv[3] == '.' ? false : atoi(argv[3])) : false;
-	HEURISTIC STRATEGY  = (argc >= 5) ? (*argv[4] == '.' ? HEURISTIC::descHeight : ((HEURISTIC) atoi(argv[4]))) : HEURISTIC::descHeight;
-	bool VERBOSE        = (argc >= 6) ? (*argv[5] == '.' ? true : atoi(argv[5])) : true;
-	char * OUTFILE      = (argc >= 7) ? (*argv[6] == '.' ? NULL : argv[6]) : NULL;
+	// Get Args from parsed results
+	std::string exe_path = argv[0];
+	std::string input_file = result["input-file"].as<std::string>();
+	uint32_t W = result["width"].as<uint32_t>();
+	bool rotations = result["rotate"].as<bool>();
+	bool verbose = result["verbose"].as<bool>();
+	auto strategy = static_cast<Heuristic>(std::clamp(result["strategy"].as<int>(), 0, static_cast<int>(Heuristic::Count)-1));
+	bool all_heuristics = result["all"].as<bool>();
 
-	// Print input arguments
-	if (VERBOSE)
-		printArgs(INFILE, W, ROTATIONS, STRATEGY, VERBOSE, OUTFILE);
-
-	// Get rectangles from input file
-	SHAPE_VEC* RECTANGLES = new SHAPE_VEC;
-
-	// Open file
-	std::ifstream ifs;
-	ifs.open(INFILE, std::ifstream::in);
-	if (!ifs.is_open()) // Fail check
+	std::string output_file;
+	if (result.count("output"))
 	{
-		std::cerr << '\n' << "Error: Couldnt open file " << INFILE << '\n';
+		output_file = result["output"].as<std::string>();
+	}
+
+	// Reading input file
+	std::vector<Shape> rectangles{};
+	std::ifstream ifs(input_file);
+	if (!ifs.is_open())
+	{
+		std::cerr << '\n'
+				  << "Error: Couldn't open file " << input_file << ": " << std::strerror(errno) << '\n';
 		return EXIT_FAILURE;
 	}
-	
-	// Read input file
-	int id = 0;
-	int w, h;
+	uint32_t id = 0;
+	uint32_t w, h;
 	while (ifs >> w >> h)
 	{
-		id++;
-		RECTANGLES->push_back(new SHAPE(id, w, h));
+		rectangles.push_back(Shape(++id, 0, 0, w, h));
 	}
-	
-	// Close input file
-	ifs.close();
-	
-	// Solve
-	RESULT* result = solve(W, RECTANGLES, ROTATIONS, STRATEGY, VERBOSE);
 
-	// Check result
-	if (!result)
+	// Solve
+	Result pack_result;
+	if (all_heuristics)
 	{
-		std::cerr << '\n' << "Error: Failed to solve..." << '\n';
-		return EXIT_FAILURE;
+		std::cout << '\n'
+		<< "Solving with all heuristics to find the best result..." << '\n';
+		std::cout << "> Input File:      " << input_file << '\n';
+		std::cout << "> Width:           " << W << '\n';
+		std::cout << "> Rotations:       " << (rotations ? "Yes" : "No") << '\n';
+		std::cout << "> Show Progress:   " << (verbose ? "Yes" : "No") << '\n';
+		std::cout << "> Output File:     " << (output_file.empty() ? "None" : output_file) << "\n\n";
+		
+		Result best_result;
+		best_result.h = UINT32_MAX;
+		
+		for (int i = 0; i < static_cast<int>(Heuristic::Count); ++i)
+		{
+			Heuristic current_strategy = static_cast<Heuristic>(i);
+			std::cout << "Testing Strategy: " << HeuristicStrings.at(current_strategy) << " ...\n";
+			
+			std::vector<Shape> rectangles_copy = rectangles;
+			
+			Result current_result = solve(W, rectangles_copy, rotations, current_strategy, verbose);
+			
+			std::cout << "  > Result Height: " << current_result.h << " (Time: " << current_result.elapsed_ms << "ms)\n";
+			
+			if (current_result.h < best_result.h)
+			{
+				best_result = current_result;
+				std::cout << "  > New best result found!\n";
+			}
+		}
+		pack_result = best_result;
+		std::cout << "\nBest result found using strategy: \"" << HeuristicStrings.at(pack_result.sort_strategy) << "\"\n";
 	}
-	
-	printResult(result);
+	else
+	{
+		print_args(input_file, W, rotations, strategy, verbose, output_file);
+		pack_result = solve(W, rectangles, rotations, strategy, verbose);
+	}
+
+	print_result(pack_result);
 
 	// Write to output file
-	if (OUTFILE)
+	if (!output_file.empty())
 	{
-		std::ofstream ofs;
-		ofs.open(OUTFILE, std::ofstream::out | std::ofstream::trunc);
-
-		if (!ofs.is_open()) // Fail check
+		std::ofstream ofs(output_file);
+		if (!ofs.is_open())
 		{
-			std::cerr << '\n' << "Error : Couldn't write to output file" << '\n';
-			return EXIT_FAILURE;
+			std::cerr << "Error: Cannot open file '" << output_file << "' for writing.\n";
 		}
-
-		ofs << "W=" << result->w << ",H=" << result->h << ",OPT(I)=" << result->opt_h << '\n';
-		ofs << "SORT=" << strategies[result->sortStrategy] << ",LOSS=" << result->loss << '%' << ",ROTATIONS=" << result->rotations << '\n';
-		ofs << "id,x,y,w,h" << '\n';
-
-		// Write each line
-		for (SHAPE_VEC::iterator it = result->rectangles->begin(); it != result->rectangles->end(); it++)
+		else
 		{
-			SHAPE* rectangle = *it;
-			ofs << rectangle->id << "," << rectangle->x << "," << rectangle->y << "," << rectangle->w << "," << rectangle->h << "\n";
-		}
+			ofs << "W=" << pack_result.w << ",H=" << pack_result.h << ",OPT(I)=" << pack_result.opt_h << '\n';
+			ofs << "SORT=" << HeuristicStrings.at(pack_result.sort_strategy) << ",LOSS=" << pack_result.loss << '%' << ",rotations=" << pack_result.rotations << '\n';
+			ofs << "id,x,y,w,h" << '\n';
 
-		// Close file
-		ofs.close();
+			for (const Shape &rectangle : pack_result.rectangles)
+			{
+				ofs << rectangle.id() << "," << rectangle.x() << "," << rectangle.y() << "," << rectangle.w() << "," << rectangle.h() << "\n";
+			}
+		}
 	}
 
 	// Visualize result
-	visualize(result, 1280, 720, getFontPath(EXE));
-
-    for (SHAPE* rectangle : *(result->rectangles)) {
-        delete rectangle;
-    }
-    delete result->rectangles;
-    delete result;
+	visualize(pack_result, 1280, 720, get_font_path(exe_path));
 
 	return EXIT_SUCCESS;
 }

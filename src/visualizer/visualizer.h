@@ -3,7 +3,7 @@
 #ifndef VISUALIZER_H
 #define VISUALIZER_H
 
-// <RESULT> <window_width> <window_height>
-void visualize(RESULT*, int, int, std::string);
+// <Result> <window_width> <window_height>
+void visualize(const Result &result, uint32_t ww, uint32_t hh, const std::string &font_path);
 
 #endif

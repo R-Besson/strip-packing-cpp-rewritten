@@ -4,220 +4,135 @@
  * @description : Main packer algorithm
  *=============================================**/
 
-#include <iostream>
-#include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <fstream>
+#include <iostream>
+#include <algorithm>
+#include <iomanip>
 
 #include "packer.h"
 
-#define CHECK_VALID 0
-#define INT_INFINITY 100000000
+#define CHECK_VALID false
 
-int nbHole = 0;
-
-// -------------------------------
-// ~ SHAPE Class
-// -------------------------------
-
-// Get Bottom Right Coordinates
-int SHAPE::getx2()
-{
-	return this->x + this->w;
-}
-int SHAPE::gety2()
-{
-	return this->y + this->h;
-}
+constexpr uint32_t INT_INFINITY = 1000000000;
+uint32_t next_hole_id = 0;
 
 // Get Area
-int SHAPE::getArea()
+uint32_t Shape::area() const
 {
-	if (!this->a) // Store area -> prevents repeating calculations
-		this->a = this->w*this->h;
-	return this->a;
+	if (!this->area_.has_value())
+	{
+		this->area_ = w_ * h_;
+	}
+	return *this->area_;
 }
 
 // Rotating a shape = Swapping the dimensions
-void SHAPE::rotate()
+void Shape::rotate()
 {
-	std::swap(this->w, this->h);
-	this->isRotated = !this->isRotated;
+	std::swap(this->w_, this->h_);
+	this->is_rotated_ = !this->is_rotated_;
 }
 
 // Compare two SHAPES based on basic properties (x,y,w,h)
-bool SHAPE::operator==(SHAPE& shape)
+bool Shape::operator==(const Shape &shape) const
 {
 	return (
-		this->x == shape.x &&
-		this->y == shape.y &&
-		this->w == shape.w &&
-		this->h == shape.h
-	);
+		this->x_ == shape.x_ &&
+		this->y_ == shape.y_ &&
+		this->w_ == shape.w_ &&
+		this->h_ == shape.h_);
 }
 
 // Check if a shape fits in another using
 // a comparison of dimensions (theoretical)
-bool SHAPE::fitsIn(SHAPE*& shape)
+bool Shape::fits_in(const Shape &shape) const
 {
 	return (
-		this->w <= shape->w &&
-		this->h <= shape->h
-	);
+		this->w_ <= shape.w_ &&
+		this->h_ <= shape.h_);
 };
 
 // Check if a shape fits in another using
 // a comparison of positions (applied)
-bool SHAPE::isIn(SHAPE*& shape)
+bool Shape::is_in(const Shape &shape) const
 {
 	return (
-		this->x >= shape->x &&              // TL corner of 'this' shape is inside 'shape'
-		this->y >= shape->y &&              //
+		this->x_ >= shape.x_ && // TL corner of 'this' shape is inside 'shape'
+		this->y_ >= shape.y_ && //
 
-		this->getx2() <= shape->getx2() &&  // BR corner of 'this' shape is inside 'shape'
-		this->gety2() <= shape->gety2()     //
+		this->x2() <= shape.x2() && // BR corner of 'this' shape is inside 'shape'
+		this->y2() <= shape.y2()	//
 	);
 }
 
-// Collision detection between 2 shapes
-// (Sharing a common border is not considered an intersect)
-
 // Detects overlap between two intervals A and B
-bool overlaps(int Amin, int Amax, int Bmin, int Bmax)
+bool overlaps(uint32_t Amin, uint32_t Amax, uint32_t Bmin, uint32_t Bmax)
 {
 	return Amin < Bmax && Amax > Bmin;
 }
 
-bool SHAPE::intersects(SHAPE*& shape)
+// Collision detection between 2 shapes
+// (Sharing a common border is not considered an intersect)
+bool Shape::intersects(const Shape &shape) const
 {
-	return ( 
-		overlaps(this->x, this->getx2(), shape->x, shape->getx2()) &&   // Two shapes only overlap
-		overlaps(this->y, this->gety2(), shape->y, shape->gety2())      // if they overlap in all dimensions
+	return (
+		overlaps(this->x_, this->x2(), shape.x_, shape.x2()) && // Two shapes only overlap
+		overlaps(this->y_, this->y2(), shape.y_, shape.y2())	// if they overlap in all dimensions
 	);
 }
 
-bool SHAPE::isCovered(SHAPE_SET*& shapes)
+bool Shape::is_covered(const std::vector<Shape> &shapes) const
 {
-	// Iterates through all the shapes and checks if it is covered by a Shape AND
-	for (SHAPE_SET::iterator it = shapes->begin(); it != shapes->end(); it++)
-	{
-		SHAPE* shape = *it;
-		if (this->isIn(shape))
-			return true;
-	}
-	return false;
+	return std::any_of(shapes.begin(), shapes.end(), [this](Shape shape)
+					   { return this->is_in(shape); });
 }
 
-// -------------------------------
-// ~ COMPARATORS
-// ? Returns true if a is before b
-// -------------------------------
-bool ascendingId(SHAPE*& a, SHAPE*& b) // Ascending Id
+// Sorting Strategy Heuristics
+bool descending_area(Shape &a, Shape &b)
 {
-	return (a->id < b->id);
+	return std::make_tuple(a.area(), a.w(), a.h(), -a.id()) >
+		   std::make_tuple(b.area(), b.w(), b.h(), -b.id());
 }
-bool descendingArea(SHAPE*& a, SHAPE*& b) // Descending Area
+bool descending_area_2(Shape &a, Shape &b)
 {
-	if (a->getArea() > b->getArea()) return true;
-	if (a->getArea() != b->getArea()) return false;
-
-	if (a->w > b->w) return true;
-	if (a->w != b->w) return false;
-
-	if (a->h > b->h) return true;
-	if (a->h != b->h) return false;
-
-	if (a->id < b->id) return true;
-
-	return false;
+	return std::make_tuple(a.area() + a.h(), a.w(), a.h(), -a.id()) >
+		   std::make_tuple(b.area() + b.h(), b.w(), b.h(), -b.id());
 }
-bool descendingArea2(SHAPE*& a, SHAPE*& b) // Descending Area
+bool descending_width(Shape &a, Shape &b)
 {
-	if ((a->getArea() + a->h) > (b->getArea() + b->h)) return true;
-	if ((a->getArea()+ a->h) != (b->getArea() + b->h)) return false;
-
-	if (a->w > b->w) return true;
-	if (a->w != b->w) return false;
-
-	if (a->h > b->h) return true;
-	if (a->h != b->h) return false;
-
-	if (a->id < b->id) return true;
-
-	return false;
+	return std::make_tuple(a.w(), a.h(), a.area(), -a.id()) >
+		   std::make_tuple(b.w(), b.h(), b.area(), -b.id());
 }
-bool ascendingArea(SHAPE*& a, SHAPE*& b)
+bool descending_height(Shape &a, Shape &b)
 {
-	return descendingArea(b, a); // Inverse arguments
+	return std::make_tuple(a.h(), a.w(), a.area(), -a.id()) >
+		   std::make_tuple(b.h(), b.w(), b.area(), -b.id());
 }
 
-bool descendingWidth(SHAPE*& a, SHAPE*& b) // Descending Width
-{
-	if (a->w > b->w) return true;
-	if (a->w != b->w) return false;
-
-	if (a->h > b->h) return true;
-	if (a->h != b->h) return false;
-
-	if (a->getArea() > b->getArea()) return true;
-	if (a->getArea() != b->getArea()) return false;
-
-	if (a->id < b->id) return true;
-
-	return false;
-}
-bool ascendingWidth(SHAPE*& a, SHAPE*& b)
-{
-	return descendingWidth(b, a); // Inverse arguments
-}
-
-bool descendingHeight(SHAPE*& a, SHAPE*& b) // Descending Height
-{
-	if (a->h > b->h) return true;
-	if (a->h != b->h) return false;
-
-	if (a->w > b->w) return true;
-	if (a->w != b->w) return false;
-
-	if (a->getArea() > b->getArea()) return true;
-	if (a->getArea() != b->getArea()) return false;
-
-	if (a->id < b->id) return true;
-
-	return false;
-}
-bool ascendingHeight(SHAPE*& a, SHAPE*& b)
-{
-	return descendingHeight(b, a); // Inverse arguments
-}
-
-// -------------------------------
-// ~ PACKER
-// -------------------------------
-
-// cutHole : Creates/Cuts Hole into new Holes based on a Shape
-void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
+// Creates/Cuts Hole into new Holes based on a Shape
+void cut_hole(const Shape &rectangle, const Shape &hole, std::vector<Shape> &holes)
 {
 	// Create new holes from a Placement / Overlapping
 	// ⬛ => Hole
 	// ⬜ => Rectangle
 	// So we enumerate all the 16 cases where the rectangle can clip inside the Hole
 
-	int rx2 = rectangle->getx2();
-	int ry2 = rectangle->gety2();
-	int hx2 = hole->getx2();
-	int hy2 = hole->gety2();
+	uint32_t rectangle_x2 = rectangle.x2();
+	uint32_t rectangle_y2 = rectangle.y2();
+	uint32_t hole_x2 = hole.x2();
+	uint32_t hole_y2 = hole.y2();
 
-	SHAPE_VEC newHoles;
+	std::vector<Shape> new_holes{};
 
 	// ⬜⬜⬜
 	// ⬜⬜⬜
 	// ⬜⬜⬜
 	// [CASE 1]: Perfect fit!
 	if (
-		rectangle == hole
-	) {} // Only case where we add 0 Holes
+		rectangle == hole)
+	{
+	} // Only case where we add 0 Holes
 	//
 
 	// ⬜⬜⬜
@@ -225,15 +140,16 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 2]: Top Bar Horizontal
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 >= hx2 &&               // Rectangle's Right Vertical Edge is right to the hole AND
+		rectangle_x2 >= hole_x2 && // Rectangle's Right Vertical Edge is right to the hole AND
 
-		ry2 > hole->y &&            // Rectangle's Bottom Horizontal Edge passes through the hole
-		ry2 < hy2                   //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
+		rectangle_y2 > hole.y() && // Rectangle's Bottom Horizontal Edge passes through the hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
 	}
 	//
 
@@ -242,16 +158,17 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬜
 	// [CASE 3]: Right Bar Vertical
 	else if (
-		rectangle->x > hole->x &&   // Rectangle's Left Vertical Edge passes through the hole AND
-		rectangle->x < hx2 &&       // 
+		rectangle.x() > hole.x() && // Rectangle's Left Vertical Edge passes through the hole AND
+		rectangle.x() < hole_x2 &&	//
 
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 >= hx2 &&               // Rectangle's Right Vertical Edge is right to the hole AND
+		rectangle_x2 >= hole_x2 && // Rectangle's Right Vertical Edge is right to the hole AND
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge is below the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge is below the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
 	}
 	//
 
@@ -260,16 +177,17 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬜⬜⬜
 	// [CASE 4]: Bottom Bar Horizontal
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       //
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 >= hx2 &&               // Rectangle's Right Vertical Edge is right to the hole AND
+		rectangle_x2 >= hole_x2 && // Rectangle's Right Vertical Edge is right to the hole AND
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge is below the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge is below the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
 	}
 	//
 
@@ -278,16 +196,17 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬜⬛⬛
 	// [CASE 5]: Left Bar Vertical
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
 
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge passes through the hole AND
-		rx2 < hx2 &&                //
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge passes through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge is below the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge is below the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
 	}
 	//
 
@@ -296,18 +215,19 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 6]: Top Left Corner
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
 
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge passes through the hole AND
-		rx2 < hx2 &&                // 
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge passes through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 > hole->y &&            // Rectangle's Bottom Horizontal Edge passes through the hole
-		ry2 < hy2                   //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
+		rectangle_y2 > hole.y() && // Rectangle's Bottom Horizontal Edge passes through the hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
 	}
 	//
 
@@ -316,19 +236,20 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 7]: Top Right Corner
 	else if (
-		rectangle->x > hole->x &&   // Rectangle's Left Vertical Edge Crosses in the hole AND
-		rectangle->x < hx2 &&       // 
+		rectangle.x() > hole.x() && // Rectangle's Left Vertical Edge Crosses in the hole AND
+		rectangle.x() < hole_x2 &&	//
 
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge is right to the hole AND
-		rx2 >= hx2 &&               // 
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge is right to the hole AND
+		rectangle_x2 >= hole_x2 && //
 
-		ry2 > hole->y &&            // Rectangle's Bottom Horizontal Edge passes through the Hole
-		ry2 < hy2                   //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
+		rectangle_y2 > hole.y() && // Rectangle's Bottom Horizontal Edge passes through the Hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
 	}
 	//
 
@@ -337,18 +258,19 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬜
 	// [CASE 8]: Bottom Right Corner
 	else if (
-		rectangle->x < hx2 &&       // Rectangle's Left Vertical Edge passes through the hole AND
-		rectangle->x > hole->x &&   //
+		rectangle.x() < hole_x2 &&	// Rectangle's Left Vertical Edge passes through the hole AND
+		rectangle.x() > hole.x() && //
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       //
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 >= hx2 &&               // Rectangle's Right Vertical Edge is right to the hole AND
+		rectangle_x2 >= hole_x2 && // Rectangle's Right Vertical Edge is right to the hole AND
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge is below the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge is below the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
 	}
 
 	// ⬛⬛⬛
@@ -356,18 +278,19 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬜⬛⬛
 	// [CASE 9]: Bottom Left Corner
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       //
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge passes through the hole AND 
-		rx2 < hx2 &&                // 
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge passes through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge passes through the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge passes through the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
 	}
 
 	// ⬛⬜⬛
@@ -375,18 +298,19 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬜⬛
 	// [CASE 10]: Middle Vertical Bar
 	else if (
-		rectangle->x > hole->x &&   // Rectangle's Left Vertical Edge passes through the hole AND
-		rectangle->x < hx2 &&       //
+		rectangle.x() > hole.x() && // Rectangle's Left Vertical Edge passes through the hole AND
+		rectangle.x() < hole_x2 &&	//
 
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge passes through the hole AND
-		rx2 < hx2 &&                //
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge passes through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge is below the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge is below the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
 	}
 
 	// ⬛⬛⬛
@@ -394,18 +318,19 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 11]: Middle Horizontal Bar
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       //
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 >= hx2 &&               // Rectangle's Right Vertical Edge if right to the hole AND
+		rectangle_x2 >= hole_x2 && // Rectangle's Right Vertical Edge if right to the hole AND
 
-		ry2 > hole->y &&            // Rectangle's Bottom Horizontal Edge is below the hole
-		ry2 < hy2                   //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
+		rectangle_y2 > hole.y() && // Rectangle's Bottom Horizontal Edge is below the hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
 	}
 
 	// ⬛⬜⬛
@@ -413,20 +338,21 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 12]: Top Rectangle Pop-Out
 	else if (
-		rectangle->x > hole->x &&   // Rectangle's Left Vertical Edge passes through the hole AND
-		rectangle->x < hx2 &&       //
+		rectangle.x() > hole.x() && // Rectangle's Left Vertical Edge passes through the hole AND
+		rectangle.x() < hole_x2 &&	//
 
-		rectangle->y <= hole->y &&  // Rectangle's Top Horizontal Edge is above the hole AND
+		rectangle.y() <= hole.y() && // Rectangle's Top Horizontal Edge is above the hole AND
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge pases through the hole AND
-		rx2 < hx2 &&                //
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge pases through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 > hole->y && // Rectangle's Bottom Horizontal Edge passes through the hole
-		ry2 < hy2    //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
+		rectangle_y2 > hole.y() && // Rectangle's Bottom Horizontal Edge passes through the hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
 	}
 
 	// ⬛⬛⬛
@@ -434,20 +360,21 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 13]: Right Rectangle Pop-Out
 	else if (
-		rectangle->x > hole->x &&   // Rectangle's Left Vertical Edge passes through the hole AND
-		rectangle->x < hx2 &&       //
+		rectangle.x() > hole.x() && // Rectangle's Left Vertical Edge passes through the hole AND
+		rectangle.x() < hole_x2 &&	//
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       //
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 >= hx2 &&               // Rectangle's Right Vertical Edge is right to the hole AND
+		rectangle_x2 >= hole_x2 && // Rectangle's Right Vertical Edge is right to the hole AND
 
-		ry2 > hole->y &&            // Rectangle's Bottom Horizontal Edge is below the hole
-		ry2 < hy2                   //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
+		rectangle_y2 > hole.y() && // Rectangle's Bottom Horizontal Edge is below the hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
 	}
 
 	// ⬛⬛⬛
@@ -455,20 +382,21 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬜⬛
 	// [CASE 14]: Bottom Rectangle Pop-Out
 	else if (
-		rectangle->x > hole->x &&   // Rectangle's Left Vertical Edge passes through the hole AND
-		rectangle->x < hx2 &&       //
+		rectangle.x() > hole.x() && // Rectangle's Left Vertical Edge passes through the hole AND
+		rectangle.x() < hole_x2 &&	//
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       // 
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 > hole->x &&            // Rectangle's Right Vertical Edge passes through the hole AND
-		rx2 < hx2 &&                //
+		rectangle_x2 > hole.x() && // Rectangle's Right Vertical Edge passes through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 >= hy2                  // Rectangle's Bottom Horizontal Edge is below the hole
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, rectangle->x-hole->x, hy2-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
+		rectangle_y2 >= hole_y2 // Rectangle's Bottom Horizontal Edge is below the hole
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
 	}
 
 	// ⬛⬛⬛
@@ -476,256 +404,223 @@ void cutHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE_SET*& holes)
 	// ⬛⬛⬛
 	// [CASE 15]: Left Rectangle Pop-Out
 	else if (
-		rectangle->x <= hole->x &&  // Rectangle's Left Vertical Edge is left to the hole AND
+		rectangle.x() <= hole.x() && // Rectangle's Left Vertical Edge is left to the hole AND
 
-		rectangle->y > hole->y &&   // Rectangle's Top Horizontal Edge passes through the hole AND
-		rectangle->y < hy2 &&       //
+		rectangle.y() > hole.y() && // Rectangle's Top Horizontal Edge passes through the hole AND
+		rectangle.y() < hole_y2 &&	//
 
-		rx2 > hole->x &&            // Rectangle's Bottom Horizontal Edge passes through the hole AND
-		rx2 < hx2 &&                //
+		rectangle_x2 > hole.x() && // Rectangle's Bottom Horizontal Edge passes through the hole AND
+		rectangle_x2 < hole_x2 &&  //
 
-		ry2 > hole->y &&            // Rectangle's Right Vertical Edge passes through the hole
-		ry2 < hy2                   //
-	) {
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, hole->y, hx2-hole->x, rectangle->y-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, rx2, hole->y, hx2-rx2, hy2-hole->y));
-		newHoles.push_back(new SHAPE(nbHole++, hole->x, ry2, hx2-hole->x, hy2-ry2));
+		rectangle_y2 > hole.y() && // Rectangle's Right Vertical Edge passes through the hole
+		rectangle_y2 < hole_y2	   //
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
 	}
 
 	// [SPECIAL CASE] Hole is covered by rectangle
 	// do nothing
+	if (hole.is_covered(holes))
+	{
+		return;
+	}
 
-	if (!hole->isCovered(holes)) {
-		for (auto newHole: newHoles) {
-			if (!newHole->isCovered(holes)) {
-				holes->insert(newHole);
-			} else {
-				delete newHole;
+	for (auto new_hole : new_holes)
+	{
+		if (!new_hole.is_covered(holes))
+		{
+			holes.push_back(new_hole);
+		}
+	}
+}
+
+// Merge holes next to each other into bigger holes improving QoR
+void merge_holes(std::vector<Shape> &holes)
+{
+	bool merged;
+	do
+	{
+		merged = false;
+		std::sort(holes.begin(), holes.end(), [](const Shape &a, const Shape &b)
+				  {
+			if (a.y() != b.y()) return a.y() < b.y();
+			return a.x() < b.x(); });
+
+		for (size_t i = 0; i < holes.size(); ++i)
+		{
+			for (size_t j = i + 1; j < holes.size(); ++j)
+			{
+				if (holes[i].y() == holes[j].y() && holes[i].h() == holes[j].h() && holes[i].x2() == holes[j].x())
+				{
+					holes[i] = Shape(holes[i].id(), holes[i].x(), holes[i].y(), holes[i].w() + holes[j].w(), holes[i].h());
+					holes.erase(holes.begin() + j);
+					merged = true;
+					goto next_merge_pass;
+				}
+				if (holes[i].x() == holes[j].x() && holes[i].w() == holes[j].w() && holes[i].y2() == holes[j].y())
+				{
+					holes[i] = Shape(holes[i].id(), holes[i].x(), holes[i].y(), holes[i].w(), holes[i].h() + holes[j].h());
+					holes.erase(holes.begin() + j);
+					merged = true;
+					goto next_merge_pass;
+				}
 			}
 		}
-	} else {
-		for (auto newHole: newHoles) {
-			delete newHole;
-		}
-	}
-
+	next_merge_pass:;
+	} while (merged);
 }
 
-void updateHoles(SHAPE*& rectangle, SHAPE_SET*& holes)
+// Main method that splits holes into new holes and then merges holes
+void update_holes(Shape &rectangle, std::vector<Shape> &holes)
 {
-	// Cut holes
-	SHAPE_SET* newHoles = new SHAPE_SET;
-
-	for (SHAPE_SET::iterator it = holes->begin(); it != holes->end(); it++)
+	std::vector<Shape> new_holes{};
+	for (const Shape &hole : holes)
 	{
-		SHAPE* hole = *it;
 		// If the Current Rectangle overlaps with a hole, we break the hole into new holes
-		if (rectangle->intersects(hole))
+		if (rectangle.intersects(hole))
 		{
-			cutHole(rectangle, hole, newHoles);
-			delete hole;
+			cut_hole(rectangle, hole, new_holes);
 		}
-		else if (!(hole->isCovered(newHoles)))
+		else if (!(hole.is_covered(new_holes)))
 		{
-			newHoles->insert(hole);
-		}
-		else
-		{
-			delete hole;
+			new_holes.push_back(hole);
 		}
 	}
-
-	delete holes;
-	holes = newHoles;
-
-	// Merge adjacent holes
-	// SHAPE_SET* newHoles2 = new SHAPE_SET;
-	// for (SHAPE_SET::iterator it1 = holes->begin(); it1 != holes->end(); it1++)
-	// {
-	//     SHAPE* hole1 = *it1;
-	//     for (SHAPE_SET::iterator it2 = std::next(it1); it2 != holes->end(); it2++)
-	//     {
-	//         SHAPE* hole2 = *it2;
-
-	//         // ⬜ = hole1
-	//         // ⬛ = hole2
-	//         if (hole1->y == hole2->y && hole1->h == hole2->h)
-	//         {
-	//             // ⬜⬛
-	//             if (hole1->getx2() == hole2->x)
-	//             { newHoles2->insert(new SHAPE(nbHole++, hole1->x, hole1->y, hole1->w+hole2->w, hole1->h)); break; }
-	//             // ⬛⬜
-	//             else if (hole2->getx2() == hole1->x)
-	//             { newHoles2->insert(new SHAPE(nbHole++, hole2->x, hole2->y, hole1->w+hole2->w, hole2->h)); break; }
-	//         }
-	//         else if (hole1->x == hole2->x && hole1->w == hole2->w)
-	//         {
-	//             // ⬜
-	//             // ⬛
-	//             if (hole1->gety2() == hole2->y)
-	//             { newHoles2->insert(new SHAPE(nbHole++, hole1->x, hole1->y, hole1->w, hole1->h+hole2->h)); break; }
-	//             // ⬛
-	//             // ⬜
-	//             else if (hole2->gety2() == hole1->y)
-	//             { newHoles2->insert(new SHAPE(nbHole++, hole2->x, hole2->y, hole2->w, hole1->h+hole2->h)); break; }
-	//         }
-
-	//         newHoles2->insert(hole1);
-	//         newHoles2->insert(hole2);
-	//     }
-	// }
-	// holes = newHoles2;
+	holes = std::move(new_holes);
+	merge_holes(holes);
 }
 
-// getNewHeight : gets y2 of rectangle if we were to place it in hole
-int getNewHeight(SHAPE*& hole, SHAPE*& rectangle)
+// gets y2 of rectangle if we were to place it in hole
+uint32_t get_new_height(const Shape &hole, const Shape &rectangle)
 {
-	return hole->y + rectangle->h;
+	return hole.y() + rectangle.h();
 }
 
-// Differentiation function for getBestHole, it say if this new hole is better than the current best hole
-bool isBetterHole(SHAPE*& rectangle, SHAPE*& hole, SHAPE*& bestHole, int bestHeight)
+// Differentiation function for get_best_hole, it says if this new hole is better than the current best hole
+bool is_better_hole(const Shape &rectangle, const Shape &hole, const std::optional<Shape> &best_hole, const uint32_t best_height)
 {
-	if (rectangle->fitsIn(hole)) // Rectangle fits in the hole
-	{
-		if (!bestHole)
-			return true;
+	if (!rectangle.fits_in(hole))
+		return false;
+	if (!best_hole)
+		return true;
 
-		int height = getNewHeight(hole, rectangle);
+	uint32_t height = get_new_height(hole, rectangle);
 
-		bool holePerfect        = (rectangle->w == hole->w && rectangle->h == hole->h);
-		bool bestHolePerfect    = (rectangle->w == bestHole->w && rectangle->h == bestHole->h);
+	bool hole_is_perfect = (rectangle.w() == hole.w() && rectangle.h() == hole.h());
+	bool best_hole_is_perfect = (rectangle.w() == best_hole->w() && rectangle.h() == best_hole->h());
 
-		// Best hole is a perfect fit ...
-		if (bestHolePerfect && !holePerfect)
-			return false;
+	if (best_hole_is_perfect && !hole_is_perfect)
+		return false;
+	if (hole_is_perfect && !best_hole_is_perfect)
+		return true;
 
-		// Hole is a perfect fit !
-		if (holePerfect && !bestHolePerfect)
-			return true;
-
-		// Differentiate holes with equal properties to get a deterministic result
-		if (height < bestHeight) return true;
-		if (height != bestHeight) return false;
-
-		// if ((hole->h-rectangle->h) > (besthole->h-rectangle->h)) return true;
-		// if ((hole->h-rectangle->h) != (besthole->h-rectangle->h)) return false;
-
-		if (hole->y < bestHole->y) return true;
-		if (hole->y != bestHole->y) return false;
-
-		if (hole->x < bestHole->x) return true;
-		if (hole->x != bestHole->x) return false;
-
-		if (hole->h < bestHole->h) return true;
-		if (hole->h != bestHole->h) return false;
-
-		if (hole->w < bestHole->w) return true;
-		if (hole->w != bestHole->w) return false;
-
-		if (hole->id < bestHole->id) return true;
-	}
-	return false;
+	return std::make_tuple(height, hole.y(), hole.x(), hole.h(), hole.w(), hole.id()) <
+		   std::make_tuple(best_height, best_hole->y(), best_hole->x(), best_hole->h(), best_hole->w(), best_hole->id());
 }
 
 // Find the best hole to place our rectangle in
-SHAPE* getBestHole(SHAPE*& rectangle, SHAPE_SET*& holes, bool rotations)
+std::optional<Shape> get_best_hole(Shape &rectangle, const std::vector<Shape> &holes, bool rotations)
 {
-	SHAPE* bestHole = nullptr;
-	int bestHeight = INT_INFINITY;
-	bool doRotation = false;
-	
-	for (SHAPE_SET::iterator it = holes->begin(); it != holes->end(); it++)
-	{
-		SHAPE* hole = *it;
+	std::optional<Shape> best_hole = std::nullopt;
+	uint32_t best_height = INT_INFINITY;
+	bool do_rotation = false;
 
+	for (const Shape &hole : holes)
+	{
 		// Normal Rotation
-		if (isBetterHole(rectangle, hole, bestHole, bestHeight))
+		if (is_better_hole(rectangle, hole, best_hole, best_height))
 		{
-			bestHeight = getNewHeight(hole, rectangle);
-			bestHole = hole;
-			doRotation = false;
+			best_height = get_new_height(hole, rectangle);
+			best_hole = hole;
+			do_rotation = false;
 		}
 
 		// Rotated Solution
-		if (!rotations) // Don't explore the rotated solution if rotations are set to false
+		if (!rotations)
 			continue;
 
-		rectangle->rotate(); // Rotate
-		if (isBetterHole(rectangle, hole, bestHole, bestHeight))
+		rectangle.rotate();
+		if (is_better_hole(rectangle, hole, best_hole, best_height))
 		{
-			bestHeight = getNewHeight(hole, rectangle);
-			bestHole = hole;
-			doRotation = true;
+			best_height = get_new_height(hole, rectangle);
+			best_hole = hole;
+			do_rotation = true;
 		}
-		rectangle->rotate(); // Rotate back to original (we saved result before)
+		rectangle.rotate(); // rotate back to original
 	}
 
-	if (doRotation) // Remember our saved variable indicating if the best solution is a rotated solution
-		rectangle->rotate();
-	
-	return bestHole;
+	if (do_rotation)
+		rectangle.rotate();
+
+	return best_hole;
 }
 
-bool fewNeighborsOnLeft(SHAPE*& rectangle, SHAPE_VEC*& rectangles)
+bool has_sufficient_left_support(const Shape &rectangle, const std::vector<Shape> &placed_rectangles)
 {
-	if (rectangle->x == 0)
-		return true;
+	constexpr float MIN_SUPPORT_RATIO = 0.5f;
 
-	int length = 0;
-
-	for (SHAPE_VEC::iterator it = rectangles->begin(); it != rectangles->end(); it++)
+	if (rectangle.x() == 0)
 	{
-		SHAPE* rectangle2 = *it;
-		if (rectangle == rectangle2) 
-			continue;
-		if (rectangle2->getx2() != rectangle->x)
-			continue;
-		if (rectangle2->gety2() <= rectangle->y)
-			continue;
-		if (rectangle2->y >= rectangle->gety2())
-			continue;
-
-		if (
-			(rectangle2->y <= rectangle->y) &&
-			(rectangle2->gety2() >= rectangle->gety2())
-		) return true;
-
-		if (
-			(rectangle2->y <= rectangle->y) &&
-			(rectangle2->gety2() <= rectangle->gety2())
-		) length += rectangle2->gety2() - rectangle->y;
-
-		if (
-			(rectangle2->y >= rectangle->y) &&
-			(rectangle2->gety2() >= rectangle->gety2())
-		) length += rectangle->gety2() - rectangle2->y;
+		return true;
 	}
 
-	if (length > rectangle->h/2)
-		return true;
+	uint32_t total_supported_length = 0;
 
-	return false;
+	for (const Shape &other : placed_rectangles)
+	{
+		if (rectangle == other)
+		{
+			continue;
+		}
+
+		bool is_left_neighbor = other.x2() == rectangle.x();
+		bool y_overlaps = rectangle.y() < other.y2() && rectangle.y2() > other.y();
+
+		if (is_left_neighbor && y_overlaps)
+		{
+			if (other.h() >= rectangle.h() && other.y() <= rectangle.y() && other.y2() >= rectangle.y2())
+			{
+				return true;
+			}
+
+			uint32_t overlap_start = std::max(rectangle.y(), other.y());
+			uint32_t overlap_end = std::min(rectangle.y2(), other.y2());
+			total_supported_length += (overlap_end - overlap_start);
+
+			if (total_supported_length > rectangle.h() * MIN_SUPPORT_RATIO)
+			{
+				return true;
+			}
+		}
+	}
+
+	return total_supported_length > rectangle.h() * MIN_SUPPORT_RATIO;
 }
 
-void printPerc(float n, float o) // print n out of o
+void print_progress(uint32_t a, uint32_t b)
 {
-	std::cout << "\r" << "Progress: " << n << "/" << o;
+	if (b == 0)
+		return;
+	float percentage = (static_cast<float>(a) / b) * 100.0f;
+	std::cout << "\r" << "  > Progress: " << a << "/" << b << " | " << std::fixed << std::setprecision(2) << percentage << "%";
 }
 
-// PACKER::solve
-RESULT* solve(int W, SHAPE_VEC*& rectangles, bool rotations, HEURISTIC strategy, bool showProgress)
+// Main method to solve a packing instance
+Result solve(uint32_t W, std::vector<Shape> &rectangles, bool rotations, Heuristic strategy, bool show_progress)
 {
 	// Initializations
-	RESULT* result = new RESULT;
-		result->w = W;
-		result->rotations = rotations;
-		result->sortStrategy = strategy;
+	Result result{};
+	result.w = W;
+	result.rotations = rotations;
+	result.sort_strategy = strategy;
 
-	SHAPE_SET* holes = new SHAPE_SET;
+	std::vector<Shape> holes{};
 
 	// Start Hole is the width of the entire canvas + an irrelevant height
-	holes->insert(new SHAPE(1, 0, 0, W, INT_INFINITY));
+	holes.push_back(Shape(1, 0, 0, W, INT_INFINITY));
 
 	// Time
 	auto start = std::chrono::high_resolution_clock::now();
@@ -733,105 +628,98 @@ RESULT* solve(int W, SHAPE_VEC*& rectangles, bool rotations, HEURISTIC strategy,
 	// Sort based on heuristic
 	switch (strategy)
 	{
-		case HEURISTIC::descArea:
-			std::sort(rectangles->begin(), rectangles->end(), descendingArea); break;
-		case HEURISTIC::descArea2:
-			std::sort(rectangles->begin(), rectangles->end(), descendingArea2); break;
-		case HEURISTIC::descWidth:
-			std::sort(rectangles->begin(), rectangles->end(), descendingWidth); break;
-		case HEURISTIC::descHeight:
-			std::sort(rectangles->begin(), rectangles->end(), descendingHeight); break;
-		case HEURISTIC::ascArea:
-			std::sort(rectangles->begin(), rectangles->end(), ascendingArea); break;
-		case HEURISTIC::ascWidth:
-			std::sort(rectangles->begin(), rectangles->end(), ascendingWidth); break;
-		case HEURISTIC::ascHeight:
-			std::sort(rectangles->begin(), rectangles->end(), ascendingHeight); break;
+	case Heuristic::DescendingArea:
+		std::sort(rectangles.begin(), rectangles.end(), descending_area);
+		break;
+	case Heuristic::DescendingArea2:
+		std::sort(rectangles.begin(), rectangles.end(), descending_area_2);
+		break;
+	case Heuristic::DescendingWidth:
+		std::sort(rectangles.begin(), rectangles.end(), descending_width);
+		break;
+	case Heuristic::DescendingHeight:
+		std::sort(rectangles.begin(), rectangles.end(), descending_height);
+		break;
+	default:
+		break;
 	}
 
-	int A = 0; // Total rectangle area
-	int maxH = 0; // Maximum height of all rectangle height's
-	int H = 0;
+	uint32_t total_area = 0;
+	uint32_t solution_height = 0;
+	uint32_t max_rectangle_height = 0;
 
-	int n = 0,                  // Current rectangle
-		N = rectangles->size(); // Nb of rectangles
-	
+	uint32_t n = 0, N = rectangles.size();
+
 	// Verbose
-	if (showProgress)
+	if (show_progress)
 	{
-		std::cout << '\n'; 
-		printPerc(n, N);
+		print_progress(n, N);
 	}
 
-	// Main iteration to place 'rectangles'
-	for (SHAPE_VEC::iterator it = rectangles->begin(); it != rectangles->end(); it++)
+	for (Shape &rectangle : rectangles)
 	{
-		SHAPE* rectangle = *it;
-		SHAPE* hole = getBestHole(rectangle, holes, rotations);
+		std::optional<Shape> hole = get_best_hole(rectangle, holes, rotations);
 
-		A += rectangle->getArea();
-		maxH = std::max(maxH, rotations ? std::min(rectangle->w, rectangle->h) : rectangle->h);
-
-		if (hole)
+		if (!hole)
 		{
-			// Place rectangle in best hole to top-left
-			rectangle->x = hole->x;
-			rectangle->y = hole->y;
-
-			// If no rectangle on its left then move it to the right -> bigger hole on its left
-			if (!fewNeighborsOnLeft(rectangle, rectangles))
-				rectangle->x = hole->getx2() - rectangle->w;
-
-			// Update new height
-			H = std::max(H, getNewHeight(hole, rectangle));
-
-			// Update the holes
-			updateHoles(rectangle, holes);
+			throw std::runtime_error("No hole for rectangle " + std::to_string(rectangle.id()));
 		}
-		else
+
+		// Place rectangle in best hole to top-left
+		rectangle.set_position(hole->x(), hole->y());
+
+		// If no rectangles on its left then move it to the right -> bigger hole on its left
+		if (!has_sufficient_left_support(rectangle, rectangles))
 		{
-			std::cerr << '\n' << "Error: No Hole for rectangle " << rectangle->id << '\n';
-			return nullptr;
+			rectangle.set_position(hole->x2() - rectangle.w(), hole->y());
 		}
+
+		total_area += rectangle.area();
+		max_rectangle_height = std::max(max_rectangle_height, rotations ? std::min(rectangle.w(), rectangle.h()) : rectangle.h());
+
+		// Update new height
+		solution_height = std::max(solution_height, get_new_height(*hole, rectangle));
+
+		// Update the holes
+		update_holes(rectangle, holes);
 
 		n++;
-		if (showProgress)
-			printPerc(n, N);
+		if (show_progress)
+			print_progress(n, N);
 	}
-	if (showProgress) std::cout << '\n';
-	
+	if (show_progress)
+		std::cout << '\n';
+
 	auto end = std::chrono::high_resolution_clock::now();
 
 	// Save result
-	result->h = H;
-	result->opt_h = std::max(std::round(float(A) / float(W)), float(maxH));
-	float canvasArea = result->w*result->h;
-	result->loss = (canvasArea-float(A))/canvasArea * 100.f;
-	result->time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-	result->rectangles = rectangles;
+	result.h = solution_height;
+	result.opt_h = std::max(std::ceil(float(total_area) / float(W)), float(max_rectangle_height));
+	result.loss = (1.f - float(total_area) / (result.w * result.h)) * 100.f;
+	result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+	result.rectangles = rectangles;
 
-	for (auto hole : *holes) {
-		delete hole;
-	}
-	delete holes;
+	std::sort(result.rectangles.begin(), result.rectangles.end(), [](const Shape &a, const Shape &b)
+			  { return a.id() < b.id(); });
 
-	#if CHECK_VALID
-		bool passedCheck = true;
-		for (SHAPE_VEC::iterator it1 = rectangles->begin(); it1 != rectangles->end(); it1++)
+#if CHECK_VALID
+	bool passed_check = true;
+	for (size_t i = 0; i < rectangles.size(); ++i)
+	{
+		for (size_t j = i + 1; j < rectangles.size(); ++j)
 		{
-			SHAPE* rectangle1 = *it1;
-			for (SHAPE_VEC::iterator it2 = rectangles->begin(); it != rectangles->end(); it2++)
+			if (rectangles[i].intersects(rectangles[j]))
 			{
-				SHAPE* rectangle2 = *it2;
-				if (!(rectangle1 == rectangle2) && rectangle1->intersects(rectangle2))
-					passedCheck = false;
-
-				if (!passedCheck) break;
+				passed_check = false;
+				break;
 			}
-			if (!passedCheck) break;
 		}
-		std::cout << "Solution is " << (passedCheck ? "valid" : "not valid") << '\n';
-	#endif
+		if (!passed_check)
+			break;
+	}
+	if (show_progress)
+		std::cout << "Solution is " << (passed_check ? "valid" : "not valid") << '\n';
+#endif
 
 	return result;
 }

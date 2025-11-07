@@ -55,7 +55,7 @@ Studied function: [PACKER::solve](./src/packer/packer.cpp#716), packer.cpp:716
 ### <u>Time</u>
 
 ##### Initialization
-Creating `RESULT` object, holes set, initial hole: $O(1)$
+Creating `Result` object, holes set, initial hole: $O(1)$
 
 ##### Sorting
 Sort rectangles using `std::sort`, comparators perform a constant number of comparisons: $O(N*log(N))$
