@@ -132,9 +132,7 @@ int main(int argc, char *argv[])
 			Heuristic current_strategy = static_cast<Heuristic>(i);
 			std::cout << "Testing Strategy: " << HeuristicStrings.at(current_strategy) << " ...\n";
 			
-			std::vector<Shape> rectangles_copy = rectangles;
-			
-			Result current_result = solve(W, rectangles_copy, rotations, current_strategy, verbose);
+			Result current_result = solve(W, rectangles, rotations, current_strategy, verbose);
 			
 			std::cout << "  > Result Height: " << current_result.h << " (Time: " << current_result.elapsed_ms << "ms)\n";
 			

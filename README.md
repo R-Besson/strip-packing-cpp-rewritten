@@ -50,7 +50,7 @@ ls
 <img src="runs/graph_avg.png">
 
 ## Algorithm Analysis $\rightarrow$ $O(N^3)$ Time, $O(N)$ Space
-Studied function: [PACKER::solve](./src/packer/packer.cpp#716), packer.cpp:716
+Studied function: [Packer::solve](./src/packer/packer.cpp)
 
 ### <u>Time</u>
 

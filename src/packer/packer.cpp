@@ -15,7 +15,6 @@
 #define CHECK_VALID false
 
 constexpr uint32_t INT_INFINITY = 1000000000;
-uint32_t next_hole_id = 0;
 
 // Get Area
 uint32_t Shape::area() const
@@ -89,29 +88,29 @@ bool Shape::is_covered(const std::vector<Shape> &shapes) const
 }
 
 // Sorting Strategy Heuristics
-bool descending_area(Shape &a, Shape &b)
+bool descending_area(const Shape &a, const Shape &b)
 {
 	return std::make_tuple(a.area(), a.w(), a.h(), -a.id()) >
 		   std::make_tuple(b.area(), b.w(), b.h(), -b.id());
 }
-bool descending_area_2(Shape &a, Shape &b)
+bool descending_area_2(const Shape &a, const Shape &b)
 {
 	return std::make_tuple(a.area() + a.h(), a.w(), a.h(), -a.id()) >
 		   std::make_tuple(b.area() + b.h(), b.w(), b.h(), -b.id());
 }
-bool descending_width(Shape &a, Shape &b)
+bool descending_width(const Shape &a, const Shape &b)
 {
 	return std::make_tuple(a.w(), a.h(), a.area(), -a.id()) >
 		   std::make_tuple(b.w(), b.h(), b.area(), -b.id());
 }
-bool descending_height(Shape &a, Shape &b)
+bool descending_height(const Shape &a, const Shape &b)
 {
 	return std::make_tuple(a.h(), a.w(), a.area(), -a.id()) >
 		   std::make_tuple(b.h(), b.w(), b.area(), -b.id());
 }
 
 // Creates/Cuts Hole into new Holes based on a Shape
-void cut_hole(const Shape &rectangle, const Shape &hole, std::vector<Shape> &holes)
+void cut_hole(const Shape &rectangle, const Shape &hole, std::vector<Shape> &holes, uint32_t &next_hole_id)
 {
 	// Create new holes from a Placement / Overlapping
 	// ⬛ => Hole
@@ -474,7 +473,7 @@ void merge_holes(std::vector<Shape> &holes)
 }
 
 // Main method that splits holes into new holes and then merges holes
-void update_holes(Shape &rectangle, std::vector<Shape> &holes)
+void update_holes(Shape &rectangle, std::vector<Shape> &holes, uint32_t &next_hole_id)
 {
 	std::vector<Shape> new_holes{};
 	for (const Shape &hole : holes)
@@ -482,7 +481,7 @@ void update_holes(Shape &rectangle, std::vector<Shape> &holes)
 		// If the Current Rectangle overlaps with a hole, we break the hole into new holes
 		if (rectangle.intersects(hole))
 		{
-			cut_hole(rectangle, hole, new_holes);
+			cut_hole(rectangle, hole, new_holes, next_hole_id);
 		}
 		else if (!(hole.is_covered(new_holes)))
 		{
@@ -609,7 +608,7 @@ void print_progress(uint32_t a, uint32_t b)
 }
 
 // Main method to solve a packing instance
-Result solve(uint32_t W, std::vector<Shape> &rectangles, bool rotations, Heuristic strategy, bool show_progress)
+Result solve(uint32_t W, std::vector<Shape> rectangles, bool rotations, Heuristic strategy, bool show_progress)
 {
 	// Initializations
 	Result result{};
@@ -649,6 +648,7 @@ Result solve(uint32_t W, std::vector<Shape> &rectangles, bool rotations, Heurist
 	uint32_t max_rectangle_height = 0;
 
 	uint32_t n = 0, N = rectangles.size();
+	uint32_t next_hole_id = 0;
 
 	// Verbose
 	if (show_progress)
@@ -681,7 +681,7 @@ Result solve(uint32_t W, std::vector<Shape> &rectangles, bool rotations, Heurist
 		solution_height = std::max(solution_height, get_new_height(*hole, rectangle));
 
 		// Update the holes
-		update_holes(rectangle, holes);
+		update_holes(rectangle, holes, next_hole_id);
 
 		n++;
 		if (show_progress)

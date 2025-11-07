@@ -48,32 +48,28 @@ sf::Text window_text(const std::string &s, sf::Vector2f pos, int size, TextOrigi
 
 	sf::FloatRect bounds = text.getLocalBounds();
 
-	bounds.left = std::round(bounds.left);
-	bounds.top = std::round(bounds.top);
-	bounds.width = std::round(bounds.width);
-	bounds.height = std::round(bounds.height);
-	pos.x = std::round(pos.x);
-	pos.y = std::round(pos.y);
-
 	switch (origin)
 	{
 	case TextOrigin::TR:
-		text.setOrigin(bounds.left + bounds.width, bounds.top);
+		text.setOrigin(std::round(bounds.left + bounds.width), std::round(bounds.top));
 		break;
 	case TextOrigin::BL:
-		text.setOrigin(bounds.left, bounds.top + bounds.height);
+		text.setOrigin(std::round(bounds.left), std::round(bounds.top + bounds.height));
 		break;
 	case TextOrigin::BR:
-		text.setOrigin(bounds.left + bounds.width, bounds.top + bounds.height);
+		text.setOrigin(std::round(bounds.left + bounds.width), std::round(bounds.top + bounds.height));
 		break;
 	case TextOrigin::C:
-		text.setOrigin(bounds.left + bounds.width / 2.f, bounds.top + bounds.height / 2.f);
+		text.setOrigin(std::round(bounds.left + bounds.width / 2.f), std::round(bounds.top + bounds.height / 2.f));
 		break;
 	case TextOrigin::TL:
 	default:
-		text.setOrigin(bounds.left, bounds.top);
+		text.setOrigin(std::round(bounds.left), std::round(bounds.top));
 		break;
 	}
+
+	pos.x = std::round(pos.x);
+	pos.y = std::round(pos.y);
 
 	text.setPosition(pos);
 	win.draw(text);
@@ -112,7 +108,6 @@ void visualize(const Result &result, uint32_t ww, uint32_t hh, const std::string
 	float zoom = 1.0f;
 	bool show_ids = true;
 	bool show_controls = true;
-
 
 	bool needs_redraw = true;
 	while (window.isOpen())
