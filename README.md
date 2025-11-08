@@ -8,6 +8,9 @@ This is an NP-hard optimization problem.
 
 In this particular implementation, we keep our focus on the empty spaces in the strip or the "holes" instead of keeping track of the rectangles per se. The first hole starts as the whole infinite strip of size (W, ∞). As we place a rectangle at the top left or top right of the hole, we break that hole into new holes, and resolve any overlaps with other holes, making sure that the holes we keep are maximal. We can also allow the rotation of rectangles. We can specify the width of the strip, specify the initial sorting strategy for the rectangles, verbosity, output file, etc...
 
+#### Example
+<img src="src/example.png">
+
 ### Setup (for users wanting to use the graphical interface)
 - Linux users follow [Linux SFML Installation Guide](https://www.sfml-dev.org/tutorials/3.0/getting-started/linux/)
 - Mac users follow [macOS SFML Installation Guide](https://www.sfml-dev.org/tutorials/3.0/getting-started/macos/)
