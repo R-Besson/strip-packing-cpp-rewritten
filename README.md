@@ -1,100 +1,88 @@
-## Strip Packing C++ Rewritten
+# Strip Packing
 
-### Description
-This repository contains an implementation for the strip packing problem that can be found here: https://en.wikipedia.org/wiki/Strip_packing_problem
+C++ solver for the NP-hard [strip packing problem](https://en.wikipedia.org/wiki/Strip_packing_problem): fit `N` rectangles into a strip of fixed width `W` without overlap, using as little height as possible.
 
-Our goal is to optimize the placing of rectangles in a strip of fixed width (W) and variable height, such that the overall final height of the strip is minimal.
-This is an NP-hard optimization problem.
+We keep track of empty space as we place the rectangles instead of tracking the rectangles themselves. The strip starts as a single *"hole"* of size `(W, ∞)`. Placing a rectangle splits whatever hole it landed in into multiple other holes and overlaps with neighbouring holes get fixed.
 
-In this particular implementation, we keep our focus on the empty spaces in the strip or the "holes" instead of keeping track of the rectangles per se. The first hole starts as the whole infinite strip of size (W, ∞). As we place a rectangle at the top left or top right of the hole, we break that hole into new holes, and resolve any overlaps with other holes, making sure that the holes we keep are maximal. We can also allow the rotation of rectangles. We can specify the width of the strip, specify the initial sorting strategy for the rectangles, verbosity, output file, etc...
+## Example (visualizer.cpp)
 
-#### Example
 <img src="src/example.png">
 
-### Setup (for users wanting to use the graphical interface)
-- Linux users follow [Linux SFML Installation Guide](https://www.sfml-dev.org/tutorials/3.0/getting-started/linux/)
-- Mac users follow [macOS SFML Installation Guide](https://www.sfml-dev.org/tutorials/3.0/getting-started/macos/)
-- Windows users need to setup [MSYS2](https://www.msys2.org/), run `pacman -Ss SFML` and find the appropriate SFML package, and install it using `pacman -S <target_package>`
+## Build
 
-### Building
 ```bash
-git clone 
-cd ./strip-packing-cpp-rewritten/
+git clone https://github.com/R-Besson/strip-packing-cpp-rewritten.git
+cd strip-packing-cpp-rewritten
 
-make # optimized compilation (default)
-# make debug # debug compilation
-# make release # static release compilation
+make            # optimized (default)
+# make debug
+# make release  # static
 
 cd build
-
-# ready to pack rectangles, run each executable to see instructions
-ls
+# run any executable with no args for usage. enjoy! :)
 ```
 
-### Input File Format
+For the SFML visualizer: [Linux](https://www.sfml-dev.org/tutorials/3.0/getting-started/linux/), [macOS](https://www.sfml-dev.org/tutorials/3.0/getting-started/macos/). Windows users install [MSYS2](https://www.msys2.org/), then `pacman -Ss SFML` and `pacman -S <package>` in the MSYS2 terminal.
+
+## Input File Format
+
 ```
-<rectangle 1 width: int> <rectangle 1 height: int>
-<rectangle 2 width: int> <rectangle 2 height: int>
+<rect 1 width> <rect 1 height>
+<rect 2 width> <rect 2 height>
 ...
 ```
 
-### Testing
-- You can make your own test instances using the `generate` executable. Run it to see usage instructions.<br>`generate` works by taking your input width (W), height-to-width ratio (r = H/W), converting it to a rectangle with dimensions (W, W * r), and recursively splitting this rectangle into smaller rectangles until reaching the rectangle count of N that you specified.
-- You can run a multitude of tests and generate a comprehensive output file using the `bench` executable.
-- If you want, you can use famous [instances](./instances_no_rotation/) in the research community of strip-packing. Keep in mind these instance files are extremely hard to find and might be incorrect because there are no agreed upon instances used for strip-packing and no attempt at standardizing testing practices has been made. Consequently, many instances aren't correct or the results obtained with them don't line up or make sense with results showed in other papers.
+## Instances & Benchmarks
+
+`generate` builds an instance `I` such that we know `OPT(I)`. Given a width `W` and a height ratio `r (H/W)`.. it takes the rectangle `(W, W·r)` and recursively splits it until you have `N` pieces. Since nothing is lost when splitting, the areas sum to `W·H` and the area lower bound `⌈area/W⌉` equals `H`. So `OPT(I) = H`.
+
+You can also use the standard sets from [2DPackLib](https://site.unibo.it/operations-research/en/research/2dpacklib) or [OR-Datasets](https://github.com/Oscar-Oliveira/OR-Datasets).
+
+`bench` can run multiple random instance generations, solves, and saves into a .csv file.
 
 ## Results
-3D graph made using Plotly showing the evolution of the worst-case optimality (α = H/OPT(I)) of the algorithm as the number of rectangles (N) goes to ∞ and the length of the optimal solution compared to strip width changes. <br>Methodology: ran 2000 iterations per N and H/W configuration using `bench` binary, results found in the [runs](./runs/) folder.
 
-<img src="runs/graph_worst.png">
+`α = H / OPT(I)` is how "optimal" the solution the solver achieved. We use `N` from 10 to 2000 and `OPT/W` from 0.1 to 10. We can then extrapolate. The raw data is in [./runs/](./runs/).
 
-3D graph made using Plotly showing the evolution of the average-case optimality (α = H/OPT(I)) of the algorithm as the number of rectangles (N) goes to ∞ and the length of the optimal solution compared to strip width changes.
+### Worst case
 
-<img src="runs/graph_avg.png">
+<img src="./runs/graph_worst.png">
 
-## Algorithm Analysis $\rightarrow$ $O(N^3)$ Time, $O(N)$ Space
-Studied function: [Packer::solve](./src/packer/packer.cpp)
+The peak (our worst of the worst result) sits above 1.5, at small `N` and short strips. No polynomial algorithm gets an absolute ratio below 3/2 unless P=NP, by reduction from PARTITION, and the best ratio anyone has proven so far is 5/3+ε.
 
-### <u>Time</u>
+### Average case
 
-##### Initialization
-Creating `Result` object, holes set, initial hole: $O(1)$
+<img src="./runs/graph_avg.png">
 
-##### Sorting
-Sort rectangles using `std::sort`, comparators perform a constant number of comparisons: $O(N*log(N))$
+Average `α` stays under 1.1 everywhere, and most of the surface is below 1.02. The high `α` values are again confined to small `N`. once there are a few hundred rectangles the packing is within a couple of percent of optimal regardless of `r`.
 
-##### Main Loop
-The function iterates $N$ times (once per rectangle). The cost of each iteration is dominated by `updateHoles`:
-*   `getBestHole`: Iterates through all $M$ holes -> $O(M)$
-*   `fewNeighborsOnLeft`: Iterates through all $N$ rectangles -> $O(N)$
-*   `updateHoles`: This is the bottleneck. It has a nested loop structure, first looping through all holes, and checking for covered holes, resulting in $O(M^2)$.
-*   **Total per iteration:** $O(N + M^2)$
+### Convergence
 
-##### Growth of M (Number of Holes)
-The number of available holes $M$ grows at most linearly with the number of rectangles placed $N$. Therefore, we can consider $M$ to be $O(N)$.
-The chart below shows the evolution of $M$ as we iterate through the Main Loop. $O(N)$ is going to be a strict upper bound for M.
+<img src="./runs/graph_convergence.png">
+
+With `N` on a log axis and one curve per `r`, we observe that `α − 1` falls from about 8% at `N = 10` to between 10⁻³ and 10⁻⁴ at `N = 2000`, and the curves steepen as they go, so the decay is faster than `1/N`.
+
+This is where the excess height should be governed by the tallest rectangle. Kenyon and Rémila's AFPTAS bounds the height by `(1+ε)·OPT + O(1/ε²)·h_max`, so the additive term shrinks as pieces get smaller relative to the strip, which is exactly what raising `N` at fixed geometry does.
+
+The curves are also cleanly ordered by `r`, and stay ordered across the whole range: taller strips give a slightly larger `α − 1`, and the gap widens with `N`.
+
+## Complexity
+
+`O(N·M²)` time and `O(M)` space, where `M` is the number of holes held. Measured across the benchmark runs, `M = Θ(N)`, which gives **`O(N³)` time, `O(N)` space**.
+
+
+Initial sort of rectangles is `O(N log N)`. Followed by the main `N` iterations consistting of :
+
+| | |
+| --- | --- |
+| `getBestHole` | `O(M)` |
+| `fewNeighborsOnLeft` | `O(N)` |
+| `updateHoles` | `O(M²)` |
+
 <img src="./runs/hole_count.png">
 
-##### Finalization & Validation
-*   Deleting remaining holes: $O(M) = O(N)$
-*   The optional validation check (`#if CHECK_VALID`) uses a nested loop over all rectangles: $O(N^2)$
+## References
 
-##### Overall Time Complexity
-The total time is $O(N*log(N))$ + sum from $i = 1$ to $N$ of $O(N + i^2)$. The sum evaluates to $O(N^3)$. This term dominates all others.<br>
-Final Time Complexity: $O(N^3)$
-
-### <u>Space</u>
-
-##### Input Data
-The `rectangles` vector stores $N$ pointers: $O(N)$
-
-##### Main Data Structures
-The `holes` set is the primary auxiliary data structure. It stores $M$ pointers to dynamically allocated `SHAPE` objects. Since $M = O(N)$, this requires $O(N)$ space.
-
-##### Temporary Data Structures
-Inside `updateHoles`, the temporary `newHoles` set also stores up to $M = O(N)$ elements, but this does not increase the overall peak memory usage.
-
-##### Overall Space Complexity
-
-The peak memory usage is dictated by the size of the `holes` set.<br>
-Final Space Complexity: $O(N)$
+- Kenyon & Rémila (2000), *A near-optimal solution to a two-dimensional cutting stock problem*
+- Burke, Kendall & Whitwell (2004), *A new placement heuristic for the orthogonal stock-cutting problem*
+- Iori, Martello, Monaci et al., *2DPackLib*
