@@ -68,7 +68,7 @@ For context: no polynomial-time algorithm can guarantee an absolute ratio below 
 
 <img src="./runs/graph_avg.png">
 
-The average `α` stays below 1.09 in every configuration, and below 1.03 once `N ≥ 200`. The largest averages occur at small `N` (peaking around `N = 50`) with a few hundred rectangles or more, the average packing is within a few percent of optimal for every `r`.
+The average `α` stays below 1.09 in every configuration, and below 1.03 once `N ≥ 200`. The largest averages occur at small `N` (peaking around `N = 50`). With a few hundred rectangles or more, the average packing is within a few percent of optimal for every `r`.
 
 ### Convergence
 
