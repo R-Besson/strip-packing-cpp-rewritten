@@ -9,6 +9,8 @@
 #include <iostream>
 #include <algorithm>
 #include <iomanip>
+#include <stdexcept>
+#include <tuple>
 
 #include "packer.h"
 
@@ -17,11 +19,11 @@
 constexpr uint32_t INT_INFINITY = 1000000000;
 
 // Get Area
-uint32_t Shape::area() const
+uint64_t Shape::area() const
 {
 	if (!this->area_.has_value())
 	{
-		this->area_ = w_ * h_;
+		this->area_ = static_cast<uint64_t>(w_) * h_;
 	}
 	return *this->area_;
 }
@@ -420,6 +422,19 @@ void cut_hole(const Shape &rectangle, const Shape &hole, std::vector<Shape> &hol
 		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
 	}
 
+	else if (
+		rectangle.x() > hole.x() &&
+		rectangle_x2 < hole_x2 &&
+		rectangle.y() > hole.y() &&
+		rectangle_y2 < hole_y2
+	)
+	{
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), hole_x2 - hole.x(), rectangle.y() - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), hole.y(), rectangle.x() - hole.x(), hole_y2 - hole.y()));
+		new_holes.push_back(Shape(next_hole_id++, hole.x(), rectangle_y2, hole_x2 - hole.x(), hole_y2 - rectangle_y2));
+		new_holes.push_back(Shape(next_hole_id++, rectangle_x2, hole.y(), hole_x2 - rectangle_x2, hole_y2 - hole.y()));
+	}
+
 	// [SPECIAL CASE] Hole is covered by rectangle
 	// do nothing
 	if (hole.is_covered(holes))
@@ -498,8 +513,13 @@ uint32_t get_new_height(const Shape &hole, const Shape &rectangle)
 	return hole.y() + rectangle.h();
 }
 
+bool is_perfect_fit(const Shape &rectangle, const Shape &hole)
+{
+	return rectangle.w() == hole.w() && rectangle.h() == hole.h();
+}
+
 // Differentiation function for get_best_hole, it says if this new hole is better than the current best hole
-bool is_better_hole(const Shape &rectangle, const Shape &hole, const std::optional<Shape> &best_hole, const uint32_t best_height)
+bool is_better_hole(const Shape &rectangle, const Shape &hole, const std::optional<Shape> &best_hole, const uint32_t best_height, const bool best_hole_is_perfect)
 {
 	if (!rectangle.fits_in(hole))
 		return false;
@@ -508,8 +528,7 @@ bool is_better_hole(const Shape &rectangle, const Shape &hole, const std::option
 
 	uint32_t height = get_new_height(hole, rectangle);
 
-	bool hole_is_perfect = (rectangle.w() == hole.w() && rectangle.h() == hole.h());
-	bool best_hole_is_perfect = (rectangle.w() == best_hole->w() && rectangle.h() == best_hole->h());
+	bool hole_is_perfect = is_perfect_fit(rectangle, hole);
 
 	if (best_hole_is_perfect && !hole_is_perfect)
 		return false;
@@ -525,15 +544,17 @@ std::optional<Shape> get_best_hole(Shape &rectangle, const std::vector<Shape> &h
 {
 	std::optional<Shape> best_hole = std::nullopt;
 	uint32_t best_height = INT_INFINITY;
+	bool best_hole_is_perfect = false;
 	bool do_rotation = false;
 
 	for (const Shape &hole : holes)
 	{
 		// Normal Rotation
-		if (is_better_hole(rectangle, hole, best_hole, best_height))
+		if (is_better_hole(rectangle, hole, best_hole, best_height, best_hole_is_perfect))
 		{
 			best_height = get_new_height(hole, rectangle);
 			best_hole = hole;
+			best_hole_is_perfect = is_perfect_fit(rectangle, hole);
 			do_rotation = false;
 		}
 
@@ -542,10 +563,11 @@ std::optional<Shape> get_best_hole(Shape &rectangle, const std::vector<Shape> &h
 			continue;
 
 		rectangle.rotate();
-		if (is_better_hole(rectangle, hole, best_hole, best_height))
+		if (is_better_hole(rectangle, hole, best_hole, best_height, best_hole_is_perfect))
 		{
 			best_height = get_new_height(hole, rectangle);
 			best_hole = hole;
+			best_hole_is_perfect = is_perfect_fit(rectangle, hole);
 			do_rotation = true;
 		}
 		rectangle.rotate(); // rotate back to original
@@ -570,11 +592,6 @@ bool has_sufficient_left_support(const Shape &rectangle, const std::vector<Shape
 
 	for (const Shape &other : placed_rectangles)
 	{
-		if (rectangle == other)
-		{
-			continue;
-		}
-
 		bool is_left_neighbor = other.x2() == rectangle.x();
 		bool y_overlaps = rectangle.y() < other.y2() && rectangle.y2() > other.y();
 
@@ -610,6 +627,11 @@ void print_progress(uint32_t a, uint32_t b)
 // Main method to solve a packing instance
 Result solve(uint32_t W, std::vector<Shape> rectangles, bool rotations, Heuristic strategy, bool show_progress)
 {
+	if (W == 0)
+	{
+		throw std::invalid_argument("Strip width must be greater than 0");
+	}
+
 	// Initializations
 	Result result{};
 	result.w = W;
@@ -643,12 +665,15 @@ Result solve(uint32_t W, std::vector<Shape> rectangles, bool rotations, Heuristi
 		break;
 	}
 
-	uint32_t total_area = 0;
+	uint64_t total_area = 0;
 	uint32_t solution_height = 0;
 	uint32_t max_rectangle_height = 0;
 
 	uint32_t n = 0, N = rectangles.size();
 	uint32_t next_hole_id = 0;
+
+	std::vector<Shape> placed_rectangles{};
+	placed_rectangles.reserve(N);
 
 	// Verbose
 	if (show_progress)
@@ -669,10 +694,11 @@ Result solve(uint32_t W, std::vector<Shape> rectangles, bool rotations, Heuristi
 		rectangle.set_position(hole->x(), hole->y());
 
 		// If no rectangles on its left then move it to the right -> bigger hole on its left
-		if (!has_sufficient_left_support(rectangle, rectangles))
+		if (!has_sufficient_left_support(rectangle, placed_rectangles))
 		{
 			rectangle.set_position(hole->x2() - rectangle.w(), hole->y());
 		}
+		placed_rectangles.push_back(rectangle);
 
 		total_area += rectangle.area();
 		max_rectangle_height = std::max(max_rectangle_height, rotations ? std::min(rectangle.w(), rectangle.h()) : rectangle.h());
@@ -694,8 +720,10 @@ Result solve(uint32_t W, std::vector<Shape> rectangles, bool rotations, Heuristi
 
 	// Save result
 	result.h = solution_height;
-	result.opt_h = std::max(std::ceil(float(total_area) / float(W)), float(max_rectangle_height));
-	result.loss = (1.f - float(total_area) / (result.w * result.h)) * 100.f;
+	const uint64_t area_lower_bound = (total_area + W - 1) / W;
+	result.opt_h = static_cast<uint32_t>(std::max<uint64_t>(area_lower_bound, max_rectangle_height));
+	const uint64_t strip_area = static_cast<uint64_t>(result.w) * result.h;
+	result.loss = strip_area == 0 ? 0.f : static_cast<float>((1.0 - static_cast<double>(total_area) / strip_area) * 100.0);
 	result.elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	result.rectangles = rectangles;
 

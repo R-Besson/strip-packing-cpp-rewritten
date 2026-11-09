@@ -6,6 +6,11 @@
  *                in format <W> <H> (new line)
  *=============================================**/
 
+#include <algorithm>
+#include <cerrno>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <fstream>
 
@@ -90,6 +95,12 @@ int main(int argc, char *argv[])
 	auto strategy = static_cast<Heuristic>(std::clamp(result["strategy"].as<int>(), 0, static_cast<int>(Heuristic::Count)-1));
 	bool all_heuristics = result["all"].as<bool>();
 
+	if (W == 0)
+	{
+		std::cerr << "Error: Width must be greater than 0.\n";
+		return EXIT_FAILURE;
+	}
+
 	std::string output_file;
 	if (result.count("output"))
 	{
@@ -111,44 +122,62 @@ int main(int argc, char *argv[])
 	{
 		rectangles.push_back(Shape(++id, 0, 0, w, h));
 	}
+	if (!ifs.eof())
+	{
+		std::cerr << "Error: Invalid data in " << input_file << " after rectangle " << id << " (expected <w> <h> per line).\n";
+		return EXIT_FAILURE;
+	}
+	if (rectangles.empty())
+	{
+		std::cerr << "Error: No rectangles found in " << input_file << ".\n";
+		return EXIT_FAILURE;
+	}
 
 	// Solve
 	Result pack_result;
-	if (all_heuristics)
+	try
 	{
-		std::cout << '\n'
-		<< "Solving with all heuristics to find the best result..." << '\n';
-		std::cout << "> Input File:      " << input_file << '\n';
-		std::cout << "> Width:           " << W << '\n';
-		std::cout << "> Rotations:       " << (rotations ? "Yes" : "No") << '\n';
-		std::cout << "> Show Progress:   " << (verbose ? "Yes" : "No") << '\n';
-		std::cout << "> Output File:     " << (output_file.empty() ? "None" : output_file) << "\n\n";
-		
-		Result best_result;
-		best_result.h = UINT32_MAX;
-		
-		for (int i = 0; i < static_cast<int>(Heuristic::Count); ++i)
+		if (all_heuristics)
 		{
-			Heuristic current_strategy = static_cast<Heuristic>(i);
-			std::cout << "Testing Strategy: " << HeuristicStrings.at(current_strategy) << " ...\n";
-			
-			Result current_result = solve(W, rectangles, rotations, current_strategy, verbose);
-			
-			std::cout << "  > Result Height: " << current_result.h << " (Time: " << current_result.elapsed_ms << "ms)\n";
-			
-			if (current_result.h < best_result.h)
+			std::cout << '\n'
+			<< "Solving with all heuristics to find the best result..." << '\n';
+			std::cout << "> Input File:      " << input_file << '\n';
+			std::cout << "> Width:           " << W << '\n';
+			std::cout << "> Rotations:       " << (rotations ? "Yes" : "No") << '\n';
+			std::cout << "> Show Progress:   " << (verbose ? "Yes" : "No") << '\n';
+			std::cout << "> Output File:     " << (output_file.empty() ? "None" : output_file) << "\n\n";
+
+			Result best_result;
+			best_result.h = UINT32_MAX;
+
+			for (int i = 0; i < static_cast<int>(Heuristic::Count); ++i)
 			{
-				best_result = current_result;
-				std::cout << "  > New best result found!\n";
+				Heuristic current_strategy = static_cast<Heuristic>(i);
+				std::cout << "Testing Strategy: " << HeuristicStrings.at(current_strategy) << " ...\n";
+
+				Result current_result = solve(W, rectangles, rotations, current_strategy, verbose);
+
+				std::cout << "  > Result Height: " << current_result.h << " (Time: " << current_result.elapsed_ms << "ms)\n";
+
+				if (current_result.h < best_result.h)
+				{
+					best_result = current_result;
+					std::cout << "  > New best result found!\n";
+				}
 			}
+			pack_result = best_result;
+			std::cout << "\nBest result found using strategy: \"" << HeuristicStrings.at(pack_result.sort_strategy) << "\"\n";
 		}
-		pack_result = best_result;
-		std::cout << "\nBest result found using strategy: \"" << HeuristicStrings.at(pack_result.sort_strategy) << "\"\n";
+		else
+		{
+			print_args(input_file, W, rotations, strategy, verbose, output_file);
+			pack_result = solve(W, rectangles, rotations, strategy, verbose);
+		}
 	}
-	else
+	catch (const std::exception &e)
 	{
-		print_args(input_file, W, rotations, strategy, verbose, output_file);
-		pack_result = solve(W, rectangles, rotations, strategy, verbose);
+		std::cerr << "Error: " << e.what() << " (is it wider than the strip?)\n";
+		return EXIT_FAILURE;
 	}
 
 	print_result(pack_result);

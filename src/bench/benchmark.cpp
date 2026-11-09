@@ -3,6 +3,7 @@
  * @description : Random Instance Benchmarking
  *=====================================================**/
 
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -87,8 +88,20 @@ int main(int argc, char *argv[])
 		std::cerr << "Error: Iteration count must be greater than 0.\n";
 		return EXIT_FAILURE;
 	}
+	if (N == 0) {
+		std::cerr << "Error: Rectangle count must be greater than 0.\n";
+		return EXIT_FAILURE;
+	}
+	if (width == 0) {
+		std::cerr << "Error: Width must be greater than 0.\n";
+		return EXIT_FAILURE;
+	}
 	if (ratio <= 0) {
 		std::cerr << "Error: Ratio must be a positive number.\n";
+		return EXIT_FAILURE;
+	}
+	if (static_cast<float>(width) * ratio < 1.f) {
+		std::cerr << "Error: Width * ratio must be at least 1.\n";
 		return EXIT_FAILURE;
 	}
 
@@ -118,8 +131,8 @@ int main(int argc, char *argv[])
 		std::vector<Shape> rectangles = gen_instance(width, N, ratio, engine);
 		Result pack_result = solve(width, rectangles, rotations, strategy, false);
 
-		const double expected_h = static_cast<double>(width) * ratio;
-		const double alpha = keep_digits(static_cast<double>(pack_result.h) / expected_h, 4);
+		const uint32_t opt_h = pack_result.opt_h;
+		const double alpha = keep_digits(static_cast<double>(pack_result.h) / opt_h, 4);
 
 		best = std::min(best, alpha);
 		worst = std::max(worst, alpha);
@@ -131,7 +144,7 @@ int main(int argc, char *argv[])
 					  << ", Ratio=" << std::fixed << std::setprecision(4) << alpha << "\n";
 
 		if (ofs.is_open())
-			ofs << i << ',' << pack_result.h << ',' << static_cast<uint32_t>(expected_h) << ',' << alpha << '\n';
+			ofs << i << ',' << pack_result.h << ',' << opt_h << ',' << alpha << '\n';
 	}
 
 	const double average = sum / iterations;

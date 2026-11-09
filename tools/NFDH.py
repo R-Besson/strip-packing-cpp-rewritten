@@ -5,8 +5,6 @@
 import math, sys
 from graphics import *
 
-win = GraphWin("NFDH Result", 800, 800)
-
 def print_usage():
     print("Usage: <python> <pythonfile> <infile> <width>")
     print("Example:")
@@ -41,7 +39,7 @@ def next_fit_decreasing_height(rects, W):
         width, height = rect[0], rect[1]
 
         if (width > W):
-            print("Rectangle of size", str(width), str(height), "is too small")
+            print("Rectangle of size", str(width), str(height), "is too wide for the strip")
             exit()
 
         # If the rect fits in the current bin, add it to the bin
@@ -63,7 +61,8 @@ def next_fit_decreasing_height(rects, W):
 items = []
 for line in rectfile:
     vars = line.rstrip().split()
-    items.append([int(vars[0]),int(vars[1])])
+    if vars:
+        items.append([int(vars[0]),int(vars[1])])
 
 try:
     strip_width = int(float(sys.argv[2]))
@@ -73,6 +72,8 @@ except:
 
 bins, strip_height, total_area = next_fit_decreasing_height(items, strip_width)
 optimal = total_area/strip_width
+
+win = GraphWin("NFDH Result", 800, 800)
 
 margin = (400-int(strip_width/2), 400-int(strip_height/2))
 

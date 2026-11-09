@@ -239,5 +239,9 @@ void visualize(const Result &result, uint32_t ww, uint32_t hh, const std::string
 
 			window.display();
 		}
+		else
+		{
+			sf::sleep(sf::milliseconds(10));
+		}
 	}
 }

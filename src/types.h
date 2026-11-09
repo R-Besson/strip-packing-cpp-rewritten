@@ -7,6 +7,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <string>
@@ -24,7 +25,7 @@ private:
 	uint32_t y_ = 0;
 	uint32_t w_ = 0;
 	uint32_t h_ = 0;
-	mutable std::optional<uint32_t> area_;
+	mutable std::optional<uint64_t> area_;
 	bool is_rotated_ = false;
 
 public:
@@ -42,7 +43,7 @@ public:
 	bool is_rotated() const { return is_rotated_; }
 	
 	// Mutators
-	uint32_t area() const; // stores calculated area in area_
+	uint64_t area() const; // stores calculated area in area_
 	void set_position(uint32_t new_x, uint32_t new_y) { x_ = new_x; y_ = new_y; }
 	void rotate();
 

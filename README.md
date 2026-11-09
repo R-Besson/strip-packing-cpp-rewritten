@@ -22,7 +22,7 @@ cd build
 # run any executable with no arguments to see its usage
 ```
 
-For the SFML visualizer: [Linux](https://www.sfml-dev.org/tutorials/3.0/getting-started/linux/), [macOS](https://www.sfml-dev.org/tutorials/3.0/getting-started/macos/). Windows users install [MSYS2](https://www.msys2.org/), then `pacman -Ss SFML` and `pacman -S <package>` in the MSYS2 terminal.
+For the SFML visualizer: [Linux](https://www.sfml-dev.org/tutorials/2.6/start-linux.php), [macOS](https://www.sfml-dev.org/tutorials/2.6/start-osx.php) (the visualizer uses the SFML 2 API and does not build against SFML 3). Windows users install [MSYS2](https://www.msys2.org/), then `pacman -Ss SFML` and `pacman -S <package>` in the MSYS2 terminal.
 
 ## Input File Format
 

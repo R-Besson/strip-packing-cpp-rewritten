@@ -43,7 +43,7 @@ prepare:
 	@echo "$(BOLD)$(GREEN)---> PREPARE$(DEF)"
 	$(RM) -r build
 	mkdir build
-	cp src/anon.ttf build/anon.ttf
+	cp src/anon.TTF build/anon.ttf
 
 # Compile
 $(OBJS): %.o: %.cpp

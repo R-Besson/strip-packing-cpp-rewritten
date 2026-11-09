@@ -8,22 +8,22 @@ def print_usage():
     print("                                            min width for a rectangle is 1, max is 100,")
     print("                                            min height for a rectangle is 2, max is 200")
 
-if (len(sys.argv) < 5):
+if (len(sys.argv) < 7):
     print_usage()
     exit()
 
 FILE = str(sys.argv[1])
 N = int(sys.argv[2])
-MIN = int(sys.argv[3])
-MAX = int(sys.argv[4])
+MIN_W = int(sys.argv[3])
+MAX_W = int(sys.argv[4])
+MIN_H = int(sys.argv[5])
+MAX_H = int(sys.argv[6])
 
 f = open(FILE, "w")
 buff = ""
-def get():
-    return str(random.randint(MIN, MAX))
-    
+
 for i in range(N):
-    buff += get()  + " " + get() + "\n"
+    buff += str(random.randint(MIN_W, MAX_W)) + " " + str(random.randint(MIN_H, MAX_H)) + "\n"
 buff = buff[:-1]
 
 f.write(buff)

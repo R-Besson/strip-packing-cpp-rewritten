@@ -72,6 +72,10 @@ int main(int argc, char *argv[])
 		std::cerr << "Error: Ratio must be a positive number.\n";
 		return EXIT_FAILURE;
 	}
+	if (static_cast<float>(W) * height_width_ratio < 1.f) {
+		std::cerr << "Error: Width * ratio must be at least 1.\n";
+		return EXIT_FAILURE;
+	}
 
 	print_args(W, N, height_width_ratio, output_file);
 
